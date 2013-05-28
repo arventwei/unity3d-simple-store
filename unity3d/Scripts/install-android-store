@@ -1,0 +1,3 @@
+#/bin/bash
+
+cp -v ../../android-store/bin/android-store.jar ../Assets/Plugins/Android
