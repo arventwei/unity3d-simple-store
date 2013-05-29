@@ -1,12 +1,7 @@
 package sisso.store;
 
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -15,25 +10,22 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.vending.billing.IInAppBillingService;
 import com.unity3d.player.UnityPlayer;
+import com.unity3d.player.UnityPlayerProxyActivity;
 
-public class StoreService implements ServiceConnection {
+public class StoreActivity extends UnityPlayerActivity implements ServiceConnection {
 	private static final String TAG = "StoreService";
-	private static StoreService instance;
+	private static StoreActivity instance;
 
 	private IInAppBillingService service;
 	private String listener;
 
-	public static StoreService get() {
-		if (instance == null)
-			instance = new StoreService();
+	public static StoreActivity get() {
 		return instance;
 	}
 
@@ -50,6 +42,12 @@ public class StoreService implements ServiceConnection {
 		sendMessage("OnDebug", message);
 	}
 
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		instance = this;
+	}
+	
 	public static void close() {
 
 	}
@@ -110,7 +108,7 @@ public class StoreService implements ServiceConnection {
 					if (response == 0) {
 						PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
 						UnityPlayer.currentActivity.startIntentSenderForResult(
-								pendingIntent.getIntentSender(), 1001,
+								pendingIntent.getIntentSender(), Cons.REQUEST_CODE_PURCHASE,
 								new Intent(), Integer.valueOf(0),
 								Integer.valueOf(0), Integer.valueOf(0));
 					} else {
@@ -230,5 +228,27 @@ public class StoreService implements ServiceConnection {
 	@Override
 	public void onServiceDisconnected(ComponentName name) {
 		this.service = null;
+	}
+	
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		Log.d(TAG, "Receiving request code "+requestCode);
+		
+		if (requestCode == Cons.REQUEST_CODE_PURCHASE) {
+			int responseCode = data.getIntExtra("RESPONSE_CODE", 0);
+			String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
+			if (responseCode == RESULT_OK) {
+				try {
+					sendMessage("OnPurchase", buildResult(new JSONObject(purchaseData)));
+				} catch (JSONException e) {
+					e.printStackTrace();
+					sendMessage("OnPurchase", buildError(e.getMessage()));
+				}
+			} else if (resultCode == RESULT_CANCELED) {
+				sendMessage("OnPurchase", buildError("canceled"));
+			}
+		} else {
+			debug("Invalid request code "+requestCode);
+		}
 	}
 }
