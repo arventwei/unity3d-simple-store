@@ -66,20 +66,20 @@ public class StoreService implements ServiceConnection {
 							querySkus);
 
 					int response = skuDetails.getInt("RESPONSE_CODE");
-					if (response != 0) {
-						sendMessage("OnInfo", buildError("Invalid response code: "+response));
+					if (response != Cons.RESULT_OK) {
+						sendMessage(Cons.EVENT_ONINFO, buildError("Invalid response code: "+response, response));
 						return;
 					}
 
 					ArrayList<String> responseList = skuDetails
 							.getStringArrayList("DETAILS_LIST");
 					for (String thisResponse : responseList) {
-						sendMessage("OnInfo", buildResult(new JSONObject(thisResponse)));
+						sendMessage(Cons.EVENT_ONINFO, buildResult(new JSONObject(thisResponse)));
 					}
 					Log.d(TAG, "getInfo thread finished");
 				} catch (Exception e) {
 					e.printStackTrace();
-					sendMessage("OnInfo", buildError(e.getMessage()));
+					sendMessage(Cons.EVENT_ONINFO, buildError(e.getMessage(), null));
 				}
 			}
 		};
@@ -100,19 +100,19 @@ public class StoreService implements ServiceConnection {
 
 					Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "random-value");
 					int response = buyIntentBundle.getInt("RESPONSE_CODE");
-					if (response == 0) {
+					if (response == Cons.RESULT_OK) {
 						PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
 						UnityPlayer.currentActivity.startIntentSenderForResult(
 								pendingIntent.getIntentSender(), Cons.REQUEST_CODE_PURCHASE,
 								new Intent(), Integer.valueOf(0),
 								Integer.valueOf(0), Integer.valueOf(0));
 					} else {
-						sendMessage("OnPurchase", buildError("Invalid response code: "+response));
+						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code: "+response, response));
 					}
 					Log.d(TAG, "purchase thread finish");
 				} catch (final Exception e) {
 					e.printStackTrace();
-					sendMessage("OnPurchase", buildError(e.getMessage()));
+					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
 				}
 			}
 		};
@@ -131,15 +131,15 @@ public class StoreService implements ServiceConnection {
 				try {
 					Log.d(TAG, "consume thread started");
 					int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), purchaseToken);
-					if (response == 0) {
-						sendMessage("Consume", buildResult(null));
+					if (response == Cons.RESULT_OK) {
+						sendMessage(Cons.EVENT_ONCONSUME, buildResult(null));
 					} else {
-						sendMessage("Consume", buildError("Invalid response code: "+String.valueOf(response)));
+						sendMessage(Cons.EVENT_ONCONSUME, buildError("Invalid response code: "+response, response));
 					}
 					Log.d(TAG, "consume thread finish");
 				} catch (final Exception e) {
 					e.printStackTrace();
-					sendMessage("OnConsume", buildError(e.getMessage()));
+					sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), null));
 				}
 			}
 		};
@@ -160,16 +160,21 @@ public class StoreService implements ServiceConnection {
 					Bundle ownedItems = get().service.getPurchases(3, UnityPlayer.currentActivity.getPackageName(), "inapp", null);
 					int response = ownedItems.getInt("RESPONSE_CODE");
 					if (response == 0) {
-						ArrayList data = ownedItems.getStringArrayList("INAPP_PURCHASE_DATA");
+						ArrayList data = ownedItems.getStringArrayList("INAPP_PURCHASE_DATA_LIST");
 						for (int i = 0; i < data.size(); ++i) {
-							sendMessage("OnPurchase", buildResult(new JSONObject((String) data.get(i))));
+							sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject((String) data.get(i))));
+						}
+						
+						if (data.size() == 0) {
+							sendMessage(Cons.EVENT_ONPURCHASE, buildError("empty", 66));
 						}
 					} else {
-						sendMessage("OnPurchase", buildError("Invalid response: "+response));
+						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response: "+response, response));
 					}
 					Log.d(TAG, "restore thread finished");
 				} catch (final Exception e) {
-					sendMessage("OnPurchase", buildError(e.getMessage()));
+					e.printStackTrace();
+					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
 				}
 			}
 		};
@@ -188,11 +193,12 @@ public class StoreService implements ServiceConnection {
 		}
 	}
 
-	private static String buildError(String msg) {
+	private static String buildError(String msg, Integer code) {
 		try {
 			JSONObject map = new JSONObject();
 			map.put("ok", false);
 			map.put("error", msg);
+			map.put("code", code);
 			return map.toString();
 		} catch(Exception e) {
 			return "failed to generate error json with msg '"+msg+"'";
@@ -213,7 +219,7 @@ public class StoreService implements ServiceConnection {
 	@Override
 	public void onServiceConnected(ComponentName name, IBinder service) {
 		this.service = IInAppBillingService.Stub.asInterface(service);
-		sendMessage("OnReady", "");
+		sendMessage(Cons.EVENT_ONREADY, "");
 	}
 
 	private static void sendMessage(String message, String value) {
@@ -226,23 +232,25 @@ public class StoreService implements ServiceConnection {
 	}
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
-		Log.d(TAG, "Receiving request code "+requestCode);
+		Log.d(TAG, "onActivityResult start "+requestCode);
 		
-		if (requestCode == Cons.REQUEST_CODE_PURCHASE) {
-			int responseCode = data.getIntExtra("RESPONSE_CODE", 0);
-			String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
-			if (responseCode == Activity.RESULT_OK) {
-				try {
-					sendMessage("OnPurchase", buildResult(new JSONObject(purchaseData)));
-				} catch (JSONException e) {
-					e.printStackTrace();
-					sendMessage("OnPurchase", buildError(e.getMessage()));
+		try {
+			if (requestCode == Cons.REQUEST_CODE_PURCHASE) {
+				int responseCode = data.getIntExtra("RESPONSE_CODE", 0);
+				String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
+				if (responseCode == Activity.RESULT_OK) {
+					Log.d(TAG, "onActivityResult purchase ok");
+					sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject(purchaseData)));
+				} else if (resultCode == Activity.RESULT_CANCELED) {
+					Log.d(TAG, "onActivityResult purchase canceled");
+					sendMessage(Cons.EVENT_ONPURCHASE, buildError("canceled", Cons.IAP_RESPONSE_CANCELED));
 				}
-			} else if (resultCode == Activity.RESULT_CANCELED) {
-				sendMessage("OnPurchase", buildError("canceled"));
+			} else {
+				debug("onActivityResult invalid code");
 			}
-		} else {
-			debug("Invalid request code "+requestCode);
+		} catch (Exception e) {
+			e.printStackTrace();
+			debug(e.getMessage());
 		}
 	}
 }
