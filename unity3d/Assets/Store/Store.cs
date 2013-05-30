@@ -31,12 +31,6 @@ public class Store {
 		}		
 	}
 	
-	public static bool IsAvailable() {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			return cls.CallStatic<bool>("isAvailable");
-		}		
-	}
-	
 	public static void GetInfo(string sku) {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("getInfo", sku);

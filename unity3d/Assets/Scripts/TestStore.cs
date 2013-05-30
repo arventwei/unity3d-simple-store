@@ -10,19 +10,19 @@ public class TestStore : MonoBehaviour, StoreListener {
 	void Start () {
 		Debug.Log("Starting");
 		Store.Initialize(gameObject.name);
-		Debug.Log("Done");
 	}
 	
 	void OnDestroy() {
+		Debug.Log("Closing");
 		Store.Close();
 	}
 	
-	public void OnReady() {
-		Debug.Log("OnReady");
-		
-		available = Store.IsAvailable();
-		if (Store.IsAvailable()) {
+	public void OnReady(string json) {
+		Debug.Log("OnReady "+json);
+		var r = Store.ParseResponse(json);
+		if (r.ok) {
 			Debug.Log("Is available");
+			available = true;
 		} else {
 			Debug.Log("Is not available");
 		}
@@ -50,10 +50,8 @@ public class TestStore : MonoBehaviour, StoreListener {
 			var code = r.code;
 			if (code == "canceled") {
 				Debug.Log("Canceled");
-				loading = true;
 			} else if (code == "empty") {
 				Debug.Log("Empty");
-				loading = true;
 			} else {
 				Debug.LogWarning("OnPurcahse invalid response code "+code);
 			}

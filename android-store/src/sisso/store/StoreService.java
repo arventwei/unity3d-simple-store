@@ -40,10 +40,17 @@ public class StoreService implements ServiceConnection {
 
 	public static void initialize(String listenerName) {
 		get().listener = listenerName;
-
-		debug("iniatialize start");
-		UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND),
-				get(), Context.BIND_AUTO_CREATE);
+		Log.d(TAG, "initialize start");
+//		Thread thread = new Thread(new Runnable() {
+//			public void run() {
+//				Log.d(TAG, "initialize thread start");
+				UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND), get(), Context.BIND_AUTO_CREATE);
+//				Log.d(TAG, "initialize thread finished");
+//			};
+//		});
+//		thread.setDaemon(true);
+//		thread.start();
+		Log.d(TAG, "initialize finished");
 	}
 
 	private static void debug(String message) {
@@ -52,7 +59,8 @@ public class StoreService implements ServiceConnection {
 	}
 	
 	public static void close() {
-
+		Log.d(TAG, "close");
+		UnityPlayer.currentActivity.unbindService(get());
 	}
 
 	public static void getInfo(final String sku) {
@@ -99,37 +107,25 @@ public class StoreService implements ServiceConnection {
 
 	public static void purchase(final String sku) {
 		Log.d(TAG, "purchase started");
-
-		Thread thread = new Thread() {
-			@Override
-			public void run() {
-				try {
-					Log.d(TAG, "purchase thread started");
-
-					Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "random-value");
-					int response = buyIntentBundle.getInt("RESPONSE_CODE");
-					if (response == Cons.RESULT_OK) {
-						PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
-						UnityPlayer.currentActivity.startIntentSenderForResult(
-								pendingIntent.getIntentSender(), Cons.REQUEST_CODE_PURCHASE,
-								new Intent(), Integer.valueOf(0),
-								Integer.valueOf(0), Integer.valueOf(0));
-					} else if (response == Cons.RESULT_OWNED) {
-						Log.d(TAG, "purchase thread product already owned, restoring");
-						restore();
-					} else {
-						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
-					}
-					Log.d(TAG, "purchase thread finish");
-				} catch (final Exception e) {
-					e.printStackTrace();
-					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
-				}
+		try {
+			Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "random-value");
+			int response = buyIntentBundle.getInt("RESPONSE_CODE");
+			if (response == Cons.RESULT_OK) {
+				PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
+				UnityPlayer.currentActivity.startIntentSenderForResult(
+						pendingIntent.getIntentSender(), Cons.REQUEST_CODE_PURCHASE,
+						new Intent(), Integer.valueOf(0),
+						Integer.valueOf(0), Integer.valueOf(0));
+			} else if (response == Cons.RESULT_OWNED) {
+				Log.d(TAG, "purchase thread product already owned, restoring");
+				restore();
+			} else {
+				sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
 			}
-		};
-		thread.setDaemon(true);
-		thread.start();
-
+		} catch (final Exception e) {
+			e.printStackTrace();
+			sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
+		}
 		Log.d(TAG, "purchase finished");
 	}
 
@@ -195,14 +191,16 @@ public class StoreService implements ServiceConnection {
 		Log.d(TAG, "restore finished");
 	}
 
-	public static boolean isAvailable() {
-		Log.d(TAG, "isAvailable");
+	private void checkAvailability() {
+		Log.d(TAG, "checkAvailability started");
 		try {
-			return get().service.isBillingSupported(3, UnityPlayer.currentActivity.getPackageName(), Cons.INAPP) == Cons.RESULT_OK;
+			boolean available = service.isBillingSupported(3, UnityPlayer.currentActivity.getPackageName(), Cons.INAPP) == Cons.RESULT_OK;
+			sendMessage(Cons.EVENT_ONREADY, available ? buildResult(null) : buildError("not available", Cons.MESSAGE_CODE_FAILED));
 		} catch (Exception e) {
 			e.printStackTrace();
-			return false;
+			sendMessage(Cons.EVENT_ONREADY, buildError("Exception "+e.getMessage(), Cons.MESSAGE_CODE_FAILED));
 		}
+		Log.d(TAG, "checkAvailability finished");
 	}
 
 	private static String buildError(String msg, String code) {
@@ -231,7 +229,7 @@ public class StoreService implements ServiceConnection {
 	@Override
 	public void onServiceConnected(ComponentName name, IBinder service) {
 		this.service = IInAppBillingService.Stub.asInterface(service);
-		sendMessage(Cons.EVENT_ONREADY, "");
+		checkAvailability();
 	}
 
 	private static void sendMessage(String message, String value) {
@@ -241,6 +239,7 @@ public class StoreService implements ServiceConnection {
 	@Override
 	public void onServiceDisconnected(ComponentName name) {
 		this.service = null;
+		sendMessage(Cons.EVENT_ONREADY, buildError("On service disconnected", Cons.MESSAGE_CODE_FAILED));
 	}
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
