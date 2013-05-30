@@ -3,7 +3,6 @@ using System.Collections;
 
 public class TestStore : MonoBehaviour, StoreListener {
 	bool available = false;
-	bool allowBuy = false;
 	bool loading = false;
 	
 	private string purchaseToken;
@@ -37,9 +36,6 @@ public class TestStore : MonoBehaviour, StoreListener {
 		Debug.Log("ProductInfo "+json);
 		
 		loading = false;
-		
-		var r = Store.ParseResponse(json);
-		if (r.ok) allowBuy = true;
 	}
 	
 	public void OnPurchase(string json) {
@@ -52,13 +48,14 @@ public class TestStore : MonoBehaviour, StoreListener {
 			purchaseToken = (string) r.data["purchaseToken"];
 		} else {
 			var code = r.code;
-			if (code == 7) {
-				Debug.Log("Forcing Restore");
-				Store.Restore();
+			if (code == "canceled") {
+				Debug.Log("Canceled");
 				loading = true;
-			} else if (code == 66) {
+			} else if (code == "empty") {
 				Debug.Log("Empty");
 				loading = true;
+			} else {
+				Debug.LogWarning("OnPurcahse invalid response code "+code);
 			}
 		}
 	}
@@ -69,7 +66,6 @@ public class TestStore : MonoBehaviour, StoreListener {
 		loading = false;
 		var r = Store.ParseResponse(json);
 		if (r.ok) {
-			allowBuy = true;
 			purchaseToken = null;
 		}
 	}
@@ -86,8 +82,6 @@ public class TestStore : MonoBehaviour, StoreListener {
 				Store.Restore();
 				loading = true;
 			}
-		}
-		if (allowBuy) {
 			if (GUI.Button(new Rect(0, 100, 100, 100), "Buy")) {
 				Store.Purchase("android.test.purchased");
 				loading = true;
