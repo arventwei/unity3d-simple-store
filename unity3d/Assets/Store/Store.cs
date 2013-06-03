@@ -55,7 +55,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public System.Action<Response> onPurchase = delegate {};
 	public System.Action<Response> onConsume = delegate {};
 	
-#if UNITY_EDITOR
+#if UNITY_EDITOR || UNITY_IPHONE
 	/* 
 	 * Fake implementation to allow to test all assyncronous in unity editor
 	 */
