@@ -17,15 +17,15 @@ public class TestStore : MonoBehaviour {
 		s.Initialize();
 	}
 	
-	void OnDestroy() {
-		Debug.Log("Closing");
-		var s = Store.Get();
-		s.onInfo -= OnInfo;
-		s.onReady -= OnReady;
-		s.onPurchase -= OnPurchase;
-		s.onConsume -= OnConsume;
-		s.Close();
-	}
+//	void OnDestroy() {
+//		Debug.Log("Closing");
+//		var s = Store.Get();
+//		s.Close();
+//		s.onInfo -= OnInfo;
+//		s.onReady -= OnReady;
+//		s.onPurchase -= OnPurchase;
+//		s.onConsume -= OnConsume;
+//	}
 	
 	public void OnReady(Store.Response r) {
 		Debug.Log("OnReady "+r);
