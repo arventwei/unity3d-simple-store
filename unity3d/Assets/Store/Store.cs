@@ -2,16 +2,19 @@ using UnityEngine;
 using System.Collections;
 using System.Runtime.InteropServices;
 
-public class Store {
+public class Store : MonoBehaviour {
 	public class Response {
 		public bool ok;
 		public string error;
-		// TODO change code to a string
 		public string code;
 		public Hashtable data;
+		
+		public string ToString() {
+			return string.Format("{ok: {0}, error: {1}, code: {2}, data: {3}", ""+ok, ""+error, ""+code, ""+data);
+		}
 	}
 	
-	public static Response ParseResponse(string json) {
+	private Response ParseResponse(string json) {
 		Hashtable map = (Hashtable) JSON.JsonDecode(json);
 		Response r = new Response();
 		r.ok = (bool) map["ok"];
@@ -24,40 +27,88 @@ public class Store {
 		return r;
 	}
 	
-	public static void Initialize(string eventListener) {
+	private static Store instance;
+	
+	public static Store Get() {
+		if (instance == null) {
+			var obj = new GameObject(typeof(Store).Name);
+			instance = obj.AddComponent<Store>();
+			GameObject.DontDestroyOnLoad(obj);
+		}
+		
+		return instance;
+	}
+	
+	public bool debug = true;
+	
+	public System.Action<Response> onReady = delegate {};
+	public System.Action<string> onDebug = delegate {};
+	public System.Action<Response> onInfo = delegate {};
+	public System.Action<Response> onPurchase = delegate {};
+	public System.Action<Response> onConsume = delegate {};
+	
+	public void Initialize() {
 		AndroidJNIHelper.debug = true;
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("initialize", eventListener);
+			cls.CallStatic("initialize", gameObject.name);
 		}		
 	}
 	
-	public static void GetInfo(string sku) {
+	public void GetInfo(string sku) {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("getInfo", sku);
 		}		
 	}
 	
-	public static void Purchase(string sku) {
+	public void Purchase(string sku) {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("purchase", sku);
 		}		
 	}
 	
-	public static void Restore() {
+	public void Restore() {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("restore");
 		}		
 	}
 	
-	public static void Consume(string token) {
+	public void Consume(string token) {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("consume", token);
 		}		
 	}
 
-	public static void Close() {
+	public void Close() {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("close");
 		}		
+	}
+	
+	void OnReady(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = ParseResponse(json);
+		onReady(r);
+	}
+	
+	void OnDebug(string msg) {
+		onDebug(msg);
+	}
+	
+	void OnInfo(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = ParseResponse(json);
+		onInfo(r);
+	}
+	
+	void OnPurchase(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = ParseResponse(json);
+		onPurchase(r);
+	}
+	
+	void OnConsume(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = ParseResponse(json);
+		onConsume(r);
 	}
 }
