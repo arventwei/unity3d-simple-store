@@ -47,13 +47,13 @@ public class TestStore : MonoBehaviour {
 		loading = false;
 	}
 	
-	public void OnPurchase(Store.Response r) {
+	public void OnPurchase(Store.PurchaseResponse r) {
 		Debug.Log("OnPurchase "+r);
 		
 		loading = false;
 		
 		if (r.ok) {
-			purchaseToken = (string) r.data["purchaseToken"];
+			purchaseToken = (string) r.purchaseToken;
 		} else {
 			var code = r.code;
 			if (code == "canceled") {
