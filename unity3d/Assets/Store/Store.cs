@@ -55,22 +55,14 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public System.Action<Response> onPurchase = delegate {};
 	public System.Action<Response> onConsume = delegate {};
 	
+	private bool started = false;
+	
 #if UNITY_EDITOR || UNITY_IPHONE
 	/* 
 	 * Fake implementation to allow to test all assyncronous in unity editor
 	 */
 	
 	private bool hasPurchase = false;
-	
-	IEnumerator Example() {
-		Debug.Log("A");
-        yield return new WaitForSeconds(5.0F);
-		Debug.Log("B");
-    }
-	
-	void Start() {
-		Example();
-	}
 	
 	private IEnumerator Latency() {
 		yield return new WaitForSeconds(Random.value * 2);
@@ -179,6 +171,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("initialize", gameObject.name);
 		}		
+		started = true;
 	}
 	
 	public void GetInfo(string sku) {
@@ -209,6 +202,11 @@ public class Store : MonoBehaviour, StoreDefinition {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("close");
 		}		
+		started = false;
+	}
+	
+	void OnDestroy() {
+		if (started) Close();
 	}
 	
 	void OnReady(string json) {
