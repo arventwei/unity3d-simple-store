@@ -51,8 +51,6 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public System.Action<PurchaseResponse> onPurchase = delegate {};
 	public System.Action<Response> onConsume = delegate {};
 	
-	private bool started = false;
-	
 #if UNITY_EDITOR || UNITY_IPHONE
 	/* 
 	 * Fake implementation to allow to test all assyncronous in unity editor
@@ -62,7 +60,14 @@ public class Store : MonoBehaviour, StoreDefinition {
 	private string purchaseSku = null;
 	
 	private IEnumerator Latency() {
-		yield return new WaitForSeconds(Random.value * 2);
+		// simulate a wait time using frames assuming that app is at target fps
+		var fps = Application.targetFrameRate;
+		if (fps <= 0) fps = 30;
+		var framesToWait = fps * (2 * Random.value + 1);
+		while (framesToWait > 0) {
+			yield return new WaitForEndOfFrame();
+			framesToWait --;
+		}
 	}
 	
 	public void Initialize() {
@@ -160,6 +165,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 	/**
 	 * Android impl
 	 */
+	
+	private bool started = false;
 	
 	private Response Parse(string json) {
 		Hashtable map = (Hashtable) JSON.JsonDecode(json);

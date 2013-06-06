@@ -98,5 +98,15 @@ public class TestStore : MonoBehaviour {
 				loading = true;
 			}
 		}
+		
+		if (Time.timeScale == 1f) {
+			if (GUI.Button(new Rect(0, 200, 100, 100), "Pause")) {
+				Time.timeScale = 0f;
+			}
+		} else {
+			if (GUI.Button(new Rect(0, 200, 100, 100), "Unpause")) {
+				Time.timeScale = 1f;
+			}
+		}
 	}
 }
