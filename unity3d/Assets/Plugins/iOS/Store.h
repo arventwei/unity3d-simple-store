@@ -15,10 +15,11 @@
 }
 @property(nonatomic, retain) NSArray *products;
 @property(nonatomic, retain) NSString *verifyServer;
+@property(nonatomic, retain) NSString *callbackName;
 @property(nonatomic, assign) BOOL verifyTransaction;
 
 + (Store *) sharedSingleton;
-- (void) loadStoreWithProducts:(NSString *) products;
+- (void) loadStoreWithProducts:(NSString *) products withCallbackName: (NSString *) callbackName;
 - (bool) canMakeStorePurchases;
 - (void) getItemInfo:(NSString *) itemName;
 - (void) purchaseItemByName:(NSString *) itemName;

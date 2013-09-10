@@ -16,7 +16,7 @@ interface StoreDefinition {
 class StoreBinding 
 {
 	[DllImport("__Internal")]
-	private static extern void _initStoreWithProducts(string products);
+	private static extern void _initStoreWithProducts(string callbackName, string products);
 	
 	[DllImport("__Internal")]
 	private static extern bool _canMakeStorePurchases();
@@ -30,11 +30,11 @@ class StoreBinding
 	[DllImport("__Internal")]
 	private static extern void _setVerificationServer(string url);
 	
-	public static void LoadStore(string[] productArray)
+	public static void LoadStore(string callbackName, string[] productArray)
 	{
 		string products = ArrayToString(productArray);
 		
-		_initStoreWithProducts(products);
+		_initStoreWithProducts(callbackName, products);
 
 	}
 
@@ -194,7 +194,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		// Make sure the user has enabled purchases in their settings before doing anything
 		if(StoreBinding.CanMakeStorePurchases())
 		{
-			StoreBinding.LoadStore(productIdentifiers);
+			StoreBinding.LoadStore(gameObject.name, productIdentifiers);
 			if(receiptServer != null)
 			{
 				Debug.Log("Adding Server Verification " + receiptServer);

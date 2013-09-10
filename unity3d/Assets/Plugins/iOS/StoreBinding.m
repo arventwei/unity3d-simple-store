@@ -13,10 +13,10 @@
 
 void UnitySendMessage( const char * className, const char * methodName, const char * param );
 
-void _initStoreWithProducts(const char *products)
+void _initStoreWithProducts(const char *callbackName, const char *products)
 {
     Store *store = [Store sharedSingleton];
-    [store loadStoreWithProducts:GetStringParam(products)];
+    [store loadStoreWithProducts:GetStringParam(products) withCallbackName: GetStringParam(callbackName)];
 }
 
 void _setVerificationServer(const char *url)
