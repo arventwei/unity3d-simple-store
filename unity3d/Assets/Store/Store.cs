@@ -215,15 +215,31 @@ public class Store : MonoBehaviour, StoreDefinition {
 	}
 	
 	public void Restore() {
-		Debug.Log("Method Restore not implemented");
+		if (debug) Debug.Log("Restore");
+		
+		var r = new PurchaseResponse();
+		r.ok = false;
+		r.code = "not-implemented";
+		onPurchase(r);
 	}
 	
 	public void Consume(string token) {
-		Debug.Log("Method Cosume not implemented");
+		if (debug) Debug.Log("Consume "+token);
+		
+		// they are automatically consumed in iap api
+		
+		var r = new Response();
+		r.ok = true;
+		onConsume(r);
 	}
 	
 	public void GetInfo(string sku) {
-		Debug.Log("Method GetInfo not implemented");
+		if (debug) Debug.Log("Restore");
+		
+		var r = new Response();
+		r.ok = false;
+		r.code = "not-implemented";
+		onInfo(r);
 	}
 	
 	public void Close() {
@@ -383,19 +399,19 @@ public class Store : MonoBehaviour, StoreDefinition {
 	}
 	
 	void OnInfo(string json) {
-		if (debug) Debug.Log("OnReady "+json);
+		if (debug) Debug.Log("OnInfo "+json);
 		var r = Parse(json);
 		onInfo(r);
 	}
 	
 	void OnPurchase(string json) {
-		if (debug) Debug.Log("OnReady "+json);
+		if (debug) Debug.Log("OnPurchase "+json);
 		var r = ParsePurchase(json);
 		onPurchase(r);
 	}
 	
 	void OnConsume(string json) {
-		if (debug) Debug.Log("OnReady "+json);
+		if (debug) Debug.Log("OnConsume "+json);
 		var r = Parse(json);
 		onConsume(r);
 	}

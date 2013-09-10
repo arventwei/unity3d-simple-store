@@ -4,7 +4,7 @@
 //
 //  Created by Jared Messenger on 12/28/12.
 //
-//
+//  Edited by Sisso
 
 #import "Store.h"
 
@@ -75,14 +75,14 @@ static Store *sharedSingleton;
         NSLog(@"Invalid product id: %@", invalidProductId);
     }
     
-    UnitySendMessage([sharedSingleton callbackName], "CallbackStoreLoadedSuccessfully", "");
+    UnitySendMessage("Store", "CallbackStoreLoadedSuccessfully", "");
     
 }
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error {
     
     NSLog(@"Failed to load list of products.");
-    UnitySendMessage([sharedSingleton callbackName], "CallbackStoreLoadFailed", "");
+    UnitySendMessage("Store", "CallbackStoreLoadFailed", "");
     
 }
 
@@ -98,7 +98,7 @@ static Store *sharedSingleton;
                                             product.price,
                                             product.productIdentifier];
         
-        UnitySendMessage([sharedSingleton callbackName], "CallbackReceiveProductInfo", MakeStringCopy(productInfoToString));
+        UnitySendMessage("Store", "CallbackReceiveProductInfo", MakeStringCopy(productInfoToString));
         [productInfoToString release];
     }
 }
@@ -111,6 +111,7 @@ static Store *sharedSingleton;
         [sharedSingleton purchaseItem:product];
     }else{
         NSLog(@"Product %@ does NOT exist", itemName);
+        UnitySendMessage("Store", "CallbackTransactionFailed", "not-found");
     }
 }
 
@@ -155,7 +156,7 @@ static Store *sharedSingleton;
         [[NSNotificationCenter defaultCenter] addObserver:sharedSingleton selector:@selector(finishTransactionFailure:) name:verifyFailedNotification object:nil];
         [sharedSingleton verifyReceipt:receipt];
     }else{
-        UnitySendMessage([sharedSingleton callbackName], "CallbackProvideContent", MakeStringCopy(transaction.originalTransaction.payment.productIdentifier));
+        UnitySendMessage("Store", "CallbackProvideContent", MakeStringCopy(transaction.originalTransaction.payment.productIdentifier));
     }
     // remove the transaction from the payment queue.
     [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
@@ -170,7 +171,7 @@ static Store *sharedSingleton;
         NSString *receipt = [Store base64forData:transaction.originalTransaction.transactionReceipt];
         [sharedSingleton verifyReceipt:receipt];
     }else{
-        UnitySendMessage([sharedSingleton callbackName], "CallbackProvideContent", MakeStringCopy(transaction.originalTransaction.payment.productIdentifier));
+        UnitySendMessage("Store", "CallbackProvideContent", MakeStringCopy(transaction.originalTransaction.payment.productIdentifier));
     }
     // remove the transaction from the payment queue.
     [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
@@ -182,7 +183,7 @@ static Store *sharedSingleton;
     {
         NSLog(@"Transaction failed");
         // error!
-        UnitySendMessage([sharedSingleton callbackName], "CallbackTransactionFailed", "");
+        UnitySendMessage("Store", "CallbackTransactionFailed", "");
         // remove the transaction from the payment queue.
         [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
     }
@@ -200,9 +201,9 @@ static Store *sharedSingleton;
     {
         NSHTTPURLResponse* httpResponse = (NSHTTPURLResponse*)[notification object];
         NSLog(@"%i", [httpResponse statusCode]);
-        UnitySendMessage([sharedSingleton callbackName], "CallbackProvideContent", "Product Awesome");
+        UnitySendMessage("Store", "CallbackProvideContent", "Product Awesome");
     }else{
-        UnitySendMessage([sharedSingleton callbackName], "CallbackProvideContent", "Product Server Failed");
+        UnitySendMessage("Store", "CallbackProvideContent", "Product Server Failed");
     }
     
     // Remove the observers
@@ -212,7 +213,7 @@ static Store *sharedSingleton;
 
 - (void) finishTransactionFailure:(NSNotification *)notification
 {
-    UnitySendMessage([sharedSingleton callbackName], "CallbackTransactionFailed", "");
+    UnitySendMessage("Store", "CallbackTransactionFailed", "");
     [[NSNotificationCenter defaultCenter] removeObserver:sharedSingleton name:verifyPurchaseNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:sharedSingleton name:verifyFailedNotification object:nil];
 }

@@ -4,7 +4,7 @@
 //
 //  Created by Jared Messenger on 12/28/12.
 //
-//
+//  Edited by Sisso
 
 #import <Foundation/Foundation.h>
 #import <StoreKit/StoreKit.h>
