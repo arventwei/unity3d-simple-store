@@ -1,10 +1,12 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 interface StoreDefinition {
 	void Initialize(string[] skus);
 	void Purchase(string sku);
+	void GetInfo(string sku);
 	void Restore();
 	void Consume(string token);
 	void Close();
@@ -181,9 +183,12 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 #if UNITY_IPHONE
 	List<StoreProduct> products = new List<StoreProduct>();
-	string[] productIdentifiers = [];
+	string[] productIdentifiers = new string[0];
+	string receiptServer = "";
 	
-	void Initialize(string[] skus) {
+	public void Initialize(string[] skus) {
+		if (debug) Debug.Log("Initializing with skus "+skus);
+		
 		this.productIdentifiers = skus;
 		
 		// Make sure the user has enabled purchases in their settings before doing anything
@@ -199,24 +204,30 @@ public class Store : MonoBehaviour, StoreDefinition {
 			Response r = new Response();
 			r.ok = false;
 			r.code = "failed";
-			r.message = "CanMakeStorePurchases return false";
+			r.error = "CanMakeStorePurchases return false";
 			onReady(r);
 		}
 	}
 	
-	void Purchase(string sku) {
+	public void Purchase(string sku) {
+		if (debug) Debug.Log("Purchase "+sku);
 		StoreBinding.PurchaseProduct(sku);
 	}
 	
-	void Restore() {
-		// TODO: ignored for now
+	public void Restore() {
+		Debug.Log("Method Restore not implemented");
 	}
 	
-	void Consume(string token) {
-		// TODO: ignored for now
+	public void Consume(string token) {
+		Debug.Log("Method Cosume not implemented");
 	}
 	
-	void Close() {
+	public void GetInfo(string sku) {
+		Debug.Log("Method GetInfo not implemented");
+	}
+	
+	public void Close() {
+		if (debug) Debug.Log("Close");
 	}
 	
 	public void	CallbackStoreLoadedSuccessfully(string empty)
@@ -234,8 +245,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 		Debug.Log("Store Failed to load");	
 		Response r = new Response();
 		r.ok = false;
-		r.error = "failed";
-		r.message = "Store failed to load with result: "+empty;
+		r.code = "failed";
+		r.error = "Store failed to load with result: "+empty;
 		onReady(r);
 	}
 	
@@ -245,12 +256,14 @@ public class Store : MonoBehaviour, StoreDefinition {
 		
 		StoreProduct product = StoreBinding.StringToProduct(info);
 		products.Add(product);
+		
+		if (debug) Debug.Log("Receive product info "+info);
 	}
 	
 	public void CallbackProvideContent(string productIdentifier)
 	{
 		// Called from Objective-C when a store purchase succeeded
-		Debug.Log("Purchase Succeeded " + productIdentifier);
+		if (debug) Debug.Log("Purchase Succeeded " + productIdentifier);
 		
 		PurchaseResponse r = new PurchaseResponse();
 		r.ok = true;
@@ -261,11 +274,11 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public void CallbackTransactionFailed(string empty)
 	{
 		// Called from Objective-C when a transaction failed
-		Debug.LogError("Purchase Failed");
+		if (debug) Debug.LogError("Purchase Failed");
 
 		PurchaseResponse r = new PurchaseResponse();
 		r.ok = false;
-		r.error = "failed";
+		r.code = "failed";
 		onPurchase(r);
 	}
 	
