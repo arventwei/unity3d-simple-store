@@ -41,15 +41,7 @@ public class StoreService implements ServiceConnection {
 	public static void initialize(String listenerName) {
 		get().listener = listenerName;
 		Log.d(TAG, "initialize start");
-//		Thread thread = new Thread(new Runnable() {
-//			public void run() {
-//				Log.d(TAG, "initialize thread start");
-				UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND), get(), Context.BIND_AUTO_CREATE);
-//				Log.d(TAG, "initialize thread finished");
-//			};
-//		});
-//		thread.setDaemon(true);
-//		thread.start();
+		UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND), get(), Context.BIND_AUTO_CREATE);
 		Log.d(TAG, "initialize finished");
 	}
 
@@ -63,10 +55,14 @@ public class StoreService implements ServiceConnection {
 		UnityPlayer.currentActivity.unbindService(get());
 	}
 
+	private static void run(Runnable runnnable) {
+		Thread thread = new Thread(runnnable);
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
 	public static void getInfo(final String sku) {
-		Log.d(TAG, "getInfo started");
-
-		Thread thread = new Thread() {
+		run(new Runnable() {
 			@Override
 			public void run() {
 				try {
@@ -98,11 +94,7 @@ public class StoreService implements ServiceConnection {
 					sendMessage(Cons.EVENT_ONINFO, buildError(e.getMessage(), null));
 				}
 			}
-		};
-		thread.setDaemon(true);
-		thread.start();
-		
-		Log.d(TAG, "getInfo finished");
+		});
 	}
 
 	public static void purchase(final String sku) {
@@ -130,9 +122,7 @@ public class StoreService implements ServiceConnection {
 	}
 
 	public static void consume(final String purchaseToken) {
-		Log.d(TAG, "consume started");
-
-		Thread thread = new Thread() {
+		run(new Runnable() {
 			@Override
 			public void run() {
 				try {
@@ -149,16 +139,11 @@ public class StoreService implements ServiceConnection {
 					sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), null));
 				}
 			}
-		};
-		thread.setDaemon(true);
-		thread.start();
-
-		Log.d(TAG, "consume finished");
+		});
 	}
 
 	public static void restore() {
-		Log.d(TAG, "restore started");
-		Thread thread = new Thread() {
+		run(new Runnable() {
 			@Override
 			public void run() {
 				try {
@@ -184,11 +169,7 @@ public class StoreService implements ServiceConnection {
 					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
 				}
 			}
-		};
-		thread.setDaemon(true);
-		thread.start();
-
-		Log.d(TAG, "restore finished");
+		});
 	}
 
 	private void checkAvailability() {
