@@ -5,6 +5,14 @@ public class TestStore : MonoBehaviour {
 	bool available = false;
 	bool loading = false;
 	
+	string[] skus = new string[] {
+#if UNITY_ANDROID
+	"android.test.purchased"
+#else
+	"coins_10"
+#endif
+	};
+	
 	private string purchaseToken;
 	
 	void Start () {
@@ -14,7 +22,7 @@ public class TestStore : MonoBehaviour {
 		s.onReady += OnReady;
 		s.onPurchase += OnPurchase;
 		s.onConsume += OnConsume;
-		s.Initialize();
+		s.Initialize(skus);
 	}
 	
 //	void OnDestroy() {
@@ -80,7 +88,7 @@ public class TestStore : MonoBehaviour {
 		
 		if (available) {
 			if (GUI.Button(new Rect(0,0, 100, 100), "Get")) {
-				Store.Get().GetInfo("android.test.purchased");
+				Store.Get().GetInfo(skus[0]);
 				loading = true;
 			}
 			if (GUI.Button(new Rect(100,0, 100, 100), "Restore")) {
@@ -88,7 +96,7 @@ public class TestStore : MonoBehaviour {
 				loading = true;
 			}
 			if (GUI.Button(new Rect(0, 100, 100, 100), "Buy")) {
-				Store.Get().Purchase("android.test.purchased");
+				Store.Get().Purchase(skus[0]);
 				loading = true;
 			}
 		}

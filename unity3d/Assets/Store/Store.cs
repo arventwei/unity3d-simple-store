@@ -3,12 +3,140 @@ using System.Collections;
 using System.Runtime.InteropServices;
 
 interface StoreDefinition {
-	void Initialize();
+	void Initialize(string[] skus);
 	void Purchase(string sku);
 	void Restore();
 	void Consume(string token);
 	void Close();
 }
+
+#if UNITY_IPHONE
+class StoreBinding 
+{
+	[DllImport("__Internal")]
+	private static extern void _initStoreWithProducts(string products);
+	
+	[DllImport("__Internal")]
+	private static extern bool _canMakeStorePurchases();
+	
+	[DllImport("__Internal")]
+	private static extern void _getProductInfo(string itemName);
+	
+	[DllImport("__Internal")]
+	private static extern void _purchaseProduct(string itemName);
+	
+	[DllImport("__Internal")]
+	private static extern void _setVerificationServer(string url);
+	
+	public static void LoadStore(string[] productArray)
+	{
+		string products = ArrayToString(productArray);
+		
+		_initStoreWithProducts(products);
+
+	}
+
+	public static bool CanMakeStorePurchases()
+	{
+		return _canMakeStorePurchases();	
+	}
+	
+	public static void LoadStoreProductsWithInfo(string[] productArray)
+	{
+		// Call this only after you receive notification that the store loaded properly
+		// 
+		foreach(string product in productArray)
+		{
+			_getProductInfo(product);	
+		}
+		
+	}
+	
+	public static void SetReceiptVerificationServer(string url)
+	{
+		Debug.Log("Setting URL to " + url);
+		_setVerificationServer(url);
+	}
+	
+	public static void PurchaseProduct(string productName)
+	{
+		_purchaseProduct(productName);
+	}
+	
+	public static void GetProductInfo(string productName)
+	{
+		_getProductInfo(productName);
+	}
+	
+	public static string ArrayToString(string[] convertArray)
+	{
+		string returnString = string.Empty;
+		for(int i=0; i<convertArray.Length; i++)
+		{
+			returnString += convertArray[i];
+			if(i != convertArray.Length - 1)
+			{
+				returnString += "|";	
+			}
+		}
+		
+		return returnString;
+	}
+	
+	public static StoreProduct StringToProduct(string productInfo)
+	{
+		string[] words = productInfo.Split('|');
+		if(words.Length == 4)
+		{
+			StoreProduct product = new StoreProduct(
+				words[0],
+				words[1],
+				words[2],
+				words[3]);
+			return product;
+		}else{
+			throw new System.FormatException("Could NOT create Product from string " + productInfo);	
+		}
+	}
+}
+
+
+public class StoreProduct
+{
+	private string _title;
+	private string _description;
+	private string _price;
+	private string _productId;
+	
+	public StoreProduct(string title, string description, string price, string productId)
+	{
+		_title       = title;
+		_description = description;
+		_price       = price;
+		_productId   = productId;
+	}
+	
+	public string Title
+	{
+		get{ return _title; }	
+	}
+	
+	public string Description
+	{
+		get{ return _description; }	
+	}
+	
+	public string Price
+	{
+		get{ return _price; }	
+	}
+	
+	public string ProductIdentifier
+	{
+		get{ return _productId; }	
+	}
+}
+#endif
 
 public class Store : MonoBehaviour, StoreDefinition {
 	public class Response {
@@ -51,7 +179,214 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public System.Action<PurchaseResponse> onPurchase = delegate {};
 	public System.Action<Response> onConsume = delegate {};
 	
-#if UNITY_EDITOR || UNITY_IPHONE
+#if UNITY_IPHONE
+	List<StoreProduct> products = new List<StoreProduct>();
+	string[] productIdentifiers = [];
+	
+	void Initialize(string[] skus) {
+		this.productIdentifiers = skus;
+		
+		// Make sure the user has enabled purchases in their settings before doing anything
+		if(StoreBinding.CanMakeStorePurchases())
+		{
+			StoreBinding.LoadStore(productIdentifiers);
+			if(receiptServer != null)
+			{
+				Debug.Log("Adding Server Verification " + receiptServer);
+				StoreBinding.SetReceiptVerificationServer(receiptServer.ToString());
+			}
+		} else {
+			Response r = new Response();
+			r.ok = false;
+			r.code = "failed";
+			r.message = "CanMakeStorePurchases return false";
+			onReady(r);
+		}
+	}
+	
+	void Purchase(string sku) {
+		StoreBinding.PurchaseProduct(sku);
+	}
+	
+	void Restore() {
+		// TODO: ignored for now
+	}
+	
+	void Consume(string token) {
+		// TODO: ignored for now
+	}
+	
+	void Close() {
+	}
+	
+	public void	CallbackStoreLoadedSuccessfully(string empty)
+	{
+		// Called From Objective-C when the store has successfully finished loading
+		StoreBinding.LoadStoreProductsWithInfo(productIdentifiers);
+		
+		Response r = new Response();
+		r.ok = true;
+		onReady(r);
+	}
+	
+	public void CallbackStoreLoadFailed(string empty)
+	{
+		Debug.Log("Store Failed to load");	
+		Response r = new Response();
+		r.ok = false;
+		r.error = "failed";
+		r.message = "Store failed to load with result: "+empty;
+		onReady(r);
+	}
+	
+	public void CallbackReceiveProductInfo(string info)
+	{
+		// Called From Objective-C After LoadStoreProductsWithInfo for each item
+		
+		StoreProduct product = StoreBinding.StringToProduct(info);
+		products.Add(product);
+	}
+	
+	public void CallbackProvideContent(string productIdentifier)
+	{
+		// Called from Objective-C when a store purchase succeeded
+		Debug.Log("Purchase Succeeded " + productIdentifier);
+		
+		PurchaseResponse r = new PurchaseResponse();
+		r.ok = true;
+		r.productSku = productIdentifier;
+		onPurchase(r);
+	}
+	
+	public void CallbackTransactionFailed(string empty)
+	{
+		// Called from Objective-C when a transaction failed
+		Debug.LogError("Purchase Failed");
+
+		PurchaseResponse r = new PurchaseResponse();
+		r.ok = false;
+		r.error = "failed";
+		onPurchase(r);
+	}
+	
+	public StoreProduct[] ListProducts()
+	{
+		// Make the List an Array to prevent Mutation outside this class
+		
+		StoreProduct[] productArray = new StoreProduct[products.Count];
+		for(int i=0; i<products.Count; i++)
+		{
+			productArray[i] = products[i];
+		}
+		return productArray;
+	}	
+#elif UNITY_ANDROID
+	/**
+	 * Android impl
+	 */
+	
+	private bool started = false;
+	
+	private Response Parse(string json) {
+		Hashtable map = (Hashtable) JSON.JsonDecode(json);
+		Response r = new Response();
+		Parse(r, map);
+		return r;
+	}
+	
+	private PurchaseResponse ParsePurchase(string json) {
+		Hashtable map = (Hashtable) JSON.JsonDecode(json);
+		PurchaseResponse r = new PurchaseResponse();
+		Parse(r, map);
+		if (r.data != null) {
+			r.purchaseToken = (string) r.data["purchaseToken"];
+			r.productSku = (string) r.data["productId"];
+		}
+		return r;
+	}
+	
+	private void Parse(Response r, Hashtable map) {
+		r.ok = (bool) map["ok"];
+		if (map.ContainsKey("error")) 
+			r.error = (string) map["error"];
+		if (map.ContainsKey("code")) 
+			r.code = (string) map["code"];
+		if (map.ContainsKey("data")) 
+			r.data = (Hashtable) map["data"];
+	}
+	
+	
+	public void Initialize(string[] skus) {
+		AndroidJNIHelper.debug = true;
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("initialize", gameObject.name);
+		}		
+		started = true;
+	}
+	
+	public void GetInfo(string sku) {
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("getInfo", sku);
+		}		
+	}
+	
+	public void Purchase(string sku) {
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("purchase", sku);
+		}		
+	}
+	
+	public void Restore() {
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("restore");
+		}		
+	}
+	
+	public void Consume(string token) {
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("consume", token);
+		}		
+	}
+
+	public void Close() {
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("close");
+		}		
+		started = false;
+	}
+	
+	void OnDestroy() {
+		if (started) Close();
+	}
+	
+	void OnReady(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = Parse(json);
+		onReady(r);
+	}
+	
+	void OnDebug(string msg) {
+		onDebug(msg);
+	}
+	
+	void OnInfo(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = Parse(json);
+		onInfo(r);
+	}
+	
+	void OnPurchase(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = ParsePurchase(json);
+		onPurchase(r);
+	}
+	
+	void OnConsume(string json) {
+		if (debug) Debug.Log("OnReady "+json);
+		var r = Parse(json);
+		onConsume(r);
+	}
+#else
 	/* 
 	 * Fake implementation to allow to test all assyncronous in unity editor
 	 */
@@ -70,7 +405,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 	}
 	
-	public void Initialize() {
+	public void Initialize(string[] skus) {
 		StartCoroutine(FakeInitialize());
 	}
 	
@@ -160,112 +495,6 @@ public class Store : MonoBehaviour, StoreDefinition {
 
 	public void Close() {
 		// ok 
-	}
-#else 
-	/**
-	 * Android impl
-	 */
-	
-	private bool started = false;
-	
-	private Response Parse(string json) {
-		Hashtable map = (Hashtable) JSON.JsonDecode(json);
-		Response r = new Response();
-		Parse(r, map);
-		return r;
-	}
-	
-	private PurchaseResponse ParsePurchase(string json) {
-		Hashtable map = (Hashtable) JSON.JsonDecode(json);
-		PurchaseResponse r = new PurchaseResponse();
-		Parse(r, map);
-		if (r.data != null) {
-			r.purchaseToken = (string) r.data["purchaseToken"];
-			r.productSku = (string) r.data["productId"];
-		}
-		return r;
-	}
-	
-	private void Parse(Response r, Hashtable map) {
-		r.ok = (bool) map["ok"];
-		if (map.ContainsKey("error")) 
-			r.error = (string) map["error"];
-		if (map.ContainsKey("code")) 
-			r.code = (string) map["code"];
-		if (map.ContainsKey("data")) 
-			r.data = (Hashtable) map["data"];
-	}
-	
-	
-	public void Initialize() {
-		AndroidJNIHelper.debug = true;
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("initialize", gameObject.name);
-		}		
-		started = true;
-	}
-	
-	public void GetInfo(string sku) {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("getInfo", sku);
-		}		
-	}
-	
-	public void Purchase(string sku) {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("purchase", sku);
-		}		
-	}
-	
-	public void Restore() {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("restore");
-		}		
-	}
-	
-	public void Consume(string token) {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("consume", token);
-		}		
-	}
-
-	public void Close() {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("close");
-		}		
-		started = false;
-	}
-	
-	void OnDestroy() {
-		if (started) Close();
-	}
-	
-	void OnReady(string json) {
-		if (debug) Debug.Log("OnReady "+json);
-		var r = Parse(json);
-		onReady(r);
-	}
-	
-	void OnDebug(string msg) {
-		onDebug(msg);
-	}
-	
-	void OnInfo(string json) {
-		if (debug) Debug.Log("OnReady "+json);
-		var r = Parse(json);
-		onInfo(r);
-	}
-	
-	void OnPurchase(string json) {
-		if (debug) Debug.Log("OnReady "+json);
-		var r = ParsePurchase(json);
-		onPurchase(r);
-	}
-	
-	void OnConsume(string json) {
-		if (debug) Debug.Log("OnReady "+json);
-		var r = Parse(json);
-		onConsume(r);
 	}
 #endif
 }
