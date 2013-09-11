@@ -183,13 +183,14 @@ static Store *sharedSingleton;
     {
         NSLog(@"Transaction failed");
         // error!
-        UnitySendMessage("Store", "CallbackTransactionFailed", "");
+        UnitySendMessage("Store", "CallbackTransactionFailed", "failed");
         // remove the transaction from the payment queue.
         [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
     }
     else
     {
         NSLog(@"User canceled Transaction");
+        UnitySendMessage("Store", "CallbackTransactionFailed", "canceled");
         // User quit the transaction
         [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
     }
@@ -213,7 +214,7 @@ static Store *sharedSingleton;
 
 - (void) finishTransactionFailure:(NSNotification *)notification
 {
-    UnitySendMessage("Store", "CallbackTransactionFailed", "");
+    UnitySendMessage("Store", "CallbackTransactionFailed", "failed");
     [[NSNotificationCenter defaultCenter] removeObserver:sharedSingleton name:verifyPurchaseNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:sharedSingleton name:verifyFailedNotification object:nil];
 }

@@ -287,14 +287,14 @@ public class Store : MonoBehaviour, StoreDefinition {
 		onPurchase(r);
 	}
 	
-	public void CallbackTransactionFailed(string empty)
+	public void CallbackTransactionFailed(string code)
 	{
 		// Called from Objective-C when a transaction failed
 		if (debug) Debug.LogError("Purchase Failed");
 
 		PurchaseResponse r = new PurchaseResponse();
 		r.ok = false;
-		r.code = "failed";
+		r.code = code;
 		onPurchase(r);
 	}
 	

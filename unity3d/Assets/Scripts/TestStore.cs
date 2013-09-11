@@ -9,7 +9,7 @@ public class TestStore : MonoBehaviour {
 #if UNITY_ANDROID
 	"android.test.purchased"
 #else
-	"coins_10"
+	"heroes.fame_10"
 #endif
 	};
 	
@@ -88,22 +88,22 @@ public class TestStore : MonoBehaviour {
 		
 		if (available) {
 			if (GUI.Button(new Rect(0,0, 100, 100), "Get")) {
-				Store.Get().GetInfo(skus[0]);
 				loading = true;
+				Store.Get().GetInfo(skus[0]);
 			}
 			if (GUI.Button(new Rect(100,0, 100, 100), "Restore")) {
-				Store.Get().Restore();
 				loading = true;
+				Store.Get().Restore();
 			}
 			if (GUI.Button(new Rect(0, 100, 100, 100), "Buy")) {
-				Store.Get().Purchase(skus[0]);
 				loading = true;
+				Store.Get().Purchase(skus[0]);
 			}
 		}
 		if (purchaseToken != null && purchaseToken.Length > 0) {
 			if (GUI.Button(new Rect(100, 100, 100, 100), "Consume")) {
-				Store.Get().Consume(purchaseToken);
 				loading = true;
+				Store.Get().Consume(purchaseToken);
 			}
 		}
 		
