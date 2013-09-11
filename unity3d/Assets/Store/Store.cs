@@ -12,7 +12,7 @@ interface StoreDefinition {
 	void Close();
 }
 
-#if UNITY_IPHONE
+#if UNITY_IPHONE && ! FAKE_IAP
 class StoreBinding 
 {
 	[DllImport("__Internal")]
@@ -181,7 +181,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public System.Action<PurchaseResponse> onPurchase = delegate {};
 	public System.Action<Response> onConsume = delegate {};
 	
-#if UNITY_IPHONE
+#if UNITY_IPHONE && ! FAKE_IAP
 	List<StoreProduct> products = new List<StoreProduct>();
 	string[] productIdentifiers = new string[0];
 	string receiptServer = "";
@@ -309,7 +309,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 		return productArray;
 	}	
-#elif UNITY_ANDROID
+#elif UNITY_ANDROID && ! FAKE_IAP
 	/**
 	 * Android impl
 	 */
