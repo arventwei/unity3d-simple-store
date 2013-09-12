@@ -184,6 +184,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 #if UNITY_IPHONE && ! FAKE_IAP && ! UNITY_EDITOR
 	List<StoreProduct> products = new List<StoreProduct>();
 	string[] productIdentifiers = new string[0];
+
+	// any value different of null will activate server verification
 	string receiptServer = null;
 	
 	public void Initialize(string[] skus) {
