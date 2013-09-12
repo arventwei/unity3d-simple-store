@@ -156,7 +156,7 @@ static Store *sharedSingleton;
         [[NSNotificationCenter defaultCenter] addObserver:sharedSingleton selector:@selector(finishTransactionFailure:) name:verifyFailedNotification object:nil];
         [sharedSingleton verifyReceipt:receipt];
     }else{
-        UnitySendMessage("Store", "CallbackProvideContent", MakeStringCopy(transaction.originalTransaction.payment.productIdentifier));
+        UnitySendMessage("Store", "CallbackProvideContent", MakeStringCopy(transaction.payment.productIdentifier));
     }
     // remove the transaction from the payment queue.
     [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
