@@ -169,10 +169,21 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 	}
 	
+	public class InfoResponse : Response {
+		public string productTitle;
+		public string productDescription;
+		public string productPrice;
+		public string productSku;
+		
+		public override string ToString() {
+			return base.ToString() + string.Format(" productSku: {0}, productPrice: {1}, productTitle: {2}, productDescription: {3}", productSku, productPrice, productTitle, productDescription);
+		}
+	}
+	
 	public interface Listener {
 		void OnReady(Response response);
 		void OnDebug(string msg);
-		void OnInfo(Response response);
+		void OnInfo(InfoResponse response);
 		void OnPurchase(PurchaseResponse response);
 		void OnConsume(ConsumeResponse response);
 	}
@@ -251,9 +262,28 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public void GetInfo(string sku) {
 		if (debug) Debug.Log("Restore");
 		
-		var r = new Response();
-		r.ok = false;
-		r.code = "not-implemented";
+		InfoResponse r = null;
+		
+		foreach (var p in products) {
+			if (p.ProductIdentifier == sku) {
+				r = new InfoResponse();
+				r.ok = true;
+				r.productTitle = p.Title;
+				r.productDescription = p.Description;
+				r.productPrice = p.Price;
+				r.productSku = p.ProductIdentifier;
+				break;
+			}
+		}
+		
+		if (r == null) {
+			// not found
+			r = new InfoResponse();
+			r.ok = false;
+			r.code = "failed";
+			r.error = "Could not found product with sku "+sku;
+		}
+		
 		listener.OnInfo(r);
 	}
 	
@@ -364,6 +394,19 @@ public class Store : MonoBehaviour, StoreDefinition {
 		return r;
 	}
 	
+	private InfoResponse ParseInfo(string json) {
+		Hashtable map = (Hashtable) JSON.JsonDecode(json);
+		InfoResponse r = new InfoResponse();
+		Parse(r, map);
+		if (r.data != null) {
+			r.productSku = (string) r.data["productId"];
+			r.productPrice = (string) r.data["price"];
+			r.productTitle = (string) r.data["title"];
+			r.productDescription = (string) r.data["description"];
+		}
+		return r;
+	}
+	
 	private void Parse(Response r, Hashtable map) {
 		r.ok = (bool) map["ok"];
 		if (map.ContainsKey("error")) 
@@ -431,7 +474,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	void OnInfo(string json) {
 		if (debug) Debug.Log("OnInfo "+json);
-		var r = Parse(json);
+		var r = ParseInfo(json);
 		listener.OnInfo(r);
 	}
 	
@@ -487,9 +530,14 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	IEnumerator FakeGetInfo(string sku) {
 		yield return StartCoroutine(Latency());
-		var r = new Response();
+		var r = new InfoResponse();
 		r.ok = Random.value > 0.1;
-		if (!r.ok) {
+		if (r.ok) {
+			r.productTitle = "Title";
+			r.productPrice = "$ 0.99";
+			r.productDescription = "Desc";
+			r.productSku = sku;
+		} else {
 			if (debug) Debug.Log("FakeStore.GetInfo simulating fail");
 			r.code = "failed";
 		}

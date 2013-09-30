@@ -39,7 +39,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		message = "debug: "+msg;
 	}
 	
-	public void OnInfo(Store.Response r) {
+	public void OnInfo(Store.InfoResponse r) {
 		Debug.Log("ProductInfo "+r);
 		message = "info: "+r;
 		loading = false;
@@ -83,7 +83,6 @@ public class TestStore : MonoBehaviour, Store.Listener {
 	void OnGUI() {
 		if (loading) return;
 		
-		var w = Screen.width / 2;
 		var h = Screen.height / 10;
 		
 		GUILayout.BeginArea(new Rect(0f, 0f, Screen.width, Screen.height));
