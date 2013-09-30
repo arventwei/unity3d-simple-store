@@ -66,7 +66,7 @@ public class StoreService implements ServiceConnection {
 			@Override
 			public void run() {
 				try {
-					Log.d(TAG, "getInfo thread started");
+					Log.d(TAG, "getInfo thread started for "+sku+"'");
 
 					ArrayList skuList = new ArrayList();
 					skuList.add(sku);
@@ -91,14 +91,14 @@ public class StoreService implements ServiceConnection {
 					Log.d(TAG, "getInfo thread finished");
 				} catch (Exception e) {
 					e.printStackTrace();
-					sendMessage(Cons.EVENT_ONINFO, buildError(e.getMessage(), null));
+					sendMessage(Cons.EVENT_ONINFO, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
 				}
 			}
 		});
 	}
 
 	public static void purchase(final String sku) {
-		Log.d(TAG, "purchase started");
+		Log.d(TAG, "purchase started for '"+sku+"'");
 		try {
 			Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "random-value");
 			int response = buyIntentBundle.getInt("RESPONSE_CODE");
@@ -116,7 +116,7 @@ public class StoreService implements ServiceConnection {
 			}
 		} catch (final Exception e) {
 			e.printStackTrace();
-			sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
+			sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
 		}
 		Log.d(TAG, "purchase finished");
 	}
@@ -126,17 +126,19 @@ public class StoreService implements ServiceConnection {
 			@Override
 			public void run() {
 				try {
-					Log.d(TAG, "consume thread started");
+					Log.d(TAG, "consume thread started for '"+purchaseToken+"'");
 					int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), purchaseToken);
 					if (response == Cons.RESULT_OK) {
-						sendMessage(Cons.EVENT_ONCONSUME, buildResult(null));
+						JSONObject result = new JSONObject();
+						result.put("token", purchaseToken);
+						sendMessage(Cons.EVENT_ONCONSUME, buildResult(result));
 					} else {
 						sendMessage(Cons.EVENT_ONCONSUME, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
 					}
 					Log.d(TAG, "consume thread finish");
 				} catch (final Exception e) {
 					e.printStackTrace();
-					sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), null));
+					sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
 				}
 			}
 		});
@@ -166,7 +168,7 @@ public class StoreService implements ServiceConnection {
 					Log.d(TAG, "restore thread finished");
 				} catch (final Exception e) {
 					e.printStackTrace();
-					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), null));
+					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
 				}
 			}
 		});
@@ -224,15 +226,20 @@ public class StoreService implements ServiceConnection {
 	}
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
-		Log.d(TAG, "onActivityResult start "+requestCode);
+		Log.d(TAG, "onActivityResult start request code "+requestCode+" result code "+resultCode);
 		
 		try {
 			if (requestCode == Cons.REQUEST_CODE_PURCHASE) {
 				int responseCode = data.getIntExtra("RESPONSE_CODE", -1);
 				String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
 				if (responseCode == Cons.RESULT_OK) {
-					Log.d(TAG, "onActivityResult purchase ok");
-					sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject(purchaseData)));
+					if (purchaseData == null) {
+						Log.d(TAG, "onActivityResult purchase is ok but data is null!");
+						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Purchase return a empty data", Cons.MESSAGE_CODE_FAILED));
+					} else {
+						Log.d(TAG, "onActivityResult purchase ok");
+						sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject(purchaseData)));
+					}
 				} else if (responseCode == Cons.RESULT_CANCELED) {
 					Log.d(TAG, "onActivityResult purchase activity canceled");
 					sendMessage(Cons.EVENT_ONPURCHASE, buildError("The purchase was canceled", Cons.MESSAGE_CODE_CANCELED));
@@ -246,6 +253,7 @@ public class StoreService implements ServiceConnection {
 		} catch (Exception e) {
 			e.printStackTrace();
 			debug(e.getMessage());
+			sendMessage(Cons.EVENT_ONPURCHASE, buildError("Exception: "+e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
 		}
 	}
 }

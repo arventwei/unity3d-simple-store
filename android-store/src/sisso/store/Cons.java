@@ -15,4 +15,5 @@ public class Cons {
 	protected static final String MESSAGE_CODE_FAILED= "failed";
 	protected static final String MESSAGE_CODE_EMPTY = "empty";
 	public static final String MESSAGE_CODE_CANCELED = "canceled";
+	public static final String MESSAGE_CODE_EXCEPTION = "exception";
 }

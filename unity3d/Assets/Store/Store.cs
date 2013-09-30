@@ -161,6 +161,22 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 	}
 	
+	public class ConsumeResponse : Response {
+		public string purchaseToken;
+		
+		public override string ToString() {
+			return base.ToString() + string.Format(" purchaseToken: {0}", purchaseToken);
+		}
+	}
+	
+	public interface Listener {
+		void OnReady(Response response);
+		void OnDebug(string msg);
+		void OnInfo(Response response);
+		void OnPurchase(PurchaseResponse response);
+		void OnConsume(ConsumeResponse response);
+	}
+	
 	private static Store instance;
 	
 	public static Store Get() {
@@ -175,11 +191,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	public bool debug = true;
 	
-	public System.Action<Response> onReady = delegate {};
-	public System.Action<string> onDebug = delegate {};
-	public System.Action<Response> onInfo = delegate {};
-	public System.Action<PurchaseResponse> onPurchase = delegate {};
-	public System.Action<Response> onConsume = delegate {};
+	public Listener listener;
 	
 #if UNITY_IPHONE && ! FAKE_IAP && ! UNITY_EDITOR
 	List<StoreProduct> products = new List<StoreProduct>();
@@ -207,7 +219,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 			r.ok = false;
 			r.code = "failed";
 			r.error = "CanMakeStorePurchases return false";
-			onReady(r);
+			listener.OnReady(r);
 		}
 	}
 	
@@ -222,17 +234,18 @@ public class Store : MonoBehaviour, StoreDefinition {
 		var r = new PurchaseResponse();
 		r.ok = false;
 		r.code = "not-implemented";
-		onPurchase(r);
+		listener.OnPurchase(r);
 	}
 	
 	public void Consume(string token) {
 		if (debug) Debug.Log("Consume "+token);
 		
 		// they are automatically consumed in iap api
-		
-		var r = new Response();
+				
+		var r = new ConsumeResponse();
 		r.ok = true;
-		onConsume(r);
+		r.purchaseToken = token;
+		listener.OnConsume(r);
 	}
 	
 	public void GetInfo(string sku) {
@@ -241,11 +254,16 @@ public class Store : MonoBehaviour, StoreDefinition {
 		var r = new Response();
 		r.ok = false;
 		r.code = "not-implemented";
-		onInfo(r);
+		listener.OnInfo(r);
 	}
 	
 	public void Close() {
 		if (debug) Debug.Log("Close");
+	}
+	
+	public void OnDebug(string msg) {
+		if (debug) Debug.Log("OnDebug "+msg);
+		listener.OnDebug(msg);
 	}
 	
 	public void	CallbackStoreLoadedSuccessfully(string empty)
@@ -255,7 +273,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		
 		Response r = new Response();
 		r.ok = true;
-		onReady(r);
+		listener.OnReady(r);
 	}
 	
 	public void CallbackStoreLoadFailed(string empty)
@@ -265,7 +283,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		r.ok = false;
 		r.code = "failed";
 		r.error = "Store failed to load with result: "+empty;
-		onReady(r);
+		listener.OnReady(r);
 	}
 	
 	public void CallbackReceiveProductInfo(string info)
@@ -286,7 +304,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		PurchaseResponse r = new PurchaseResponse();
 		r.ok = true;
 		r.productSku = productIdentifier;
-		onPurchase(r);
+		listener.OnPurchase(r);
 	}
 	
 	public void CallbackTransactionFailed(string code)
@@ -297,7 +315,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		PurchaseResponse r = new PurchaseResponse();
 		r.ok = false;
 		r.code = code;
-		onPurchase(r);
+		listener.OnPurchase(r);
 	}
 	
 	public StoreProduct[] ListProducts()
@@ -332,6 +350,16 @@ public class Store : MonoBehaviour, StoreDefinition {
 		if (r.data != null) {
 			r.purchaseToken = (string) r.data["purchaseToken"];
 			r.productSku = (string) r.data["productId"];
+		}
+		return r;
+	}
+		
+	private ConsumeResponse ParseConsume(string json) {
+		Hashtable map = (Hashtable) JSON.JsonDecode(json);
+		ConsumeResponse r = new ConsumeResponse();
+		Parse(r, map);
+		if (r.data != null) {
+			r.purchaseToken = (string) r.data["purchaseToken"];
 		}
 		return r;
 	}
@@ -393,29 +421,30 @@ public class Store : MonoBehaviour, StoreDefinition {
 	void OnReady(string json) {
 		if (debug) Debug.Log("OnReady "+json);
 		var r = Parse(json);
-		onReady(r);
+		listener.OnReady(r);
 	}
 	
 	void OnDebug(string msg) {
-		onDebug(msg);
+		if (debug) Debug.Log("OnDebug "+msg);
+		listener.OnDebug(msg);
 	}
 	
 	void OnInfo(string json) {
 		if (debug) Debug.Log("OnInfo "+json);
 		var r = Parse(json);
-		onInfo(r);
+		listener.OnInfo(r);
 	}
 	
 	void OnPurchase(string json) {
 		if (debug) Debug.Log("OnPurchase "+json);
 		var r = ParsePurchase(json);
-		onPurchase(r);
+		listener.OnPurchase(r);
 	}
 	
 	void OnConsume(string json) {
 		if (debug) Debug.Log("OnConsume "+json);
-		var r = Parse(json);
-		onConsume(r);
+		var r = ParseConsume(json);
+		listener.OnConsume(r);
 	}
 #else
 	/* 
@@ -449,7 +478,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 			r.code = "failed";
 		}
 		if (debug) Debug.Log("FakeStore.Initialize");
-		onReady(r);
+		listener.OnReady(r);
 	}
 	
 	public void GetInfo(string sku) {
@@ -465,7 +494,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 			r.code = "failed";
 		}
 		if (debug) Debug.Log("FakeStore.GetInfo");
-		onInfo(r);
+		listener.OnInfo(r);
 	}
 	
 	public void Purchase(string sku) {
@@ -487,7 +516,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 			purchaseSku = sku;
 		}
 		if (debug) Debug.Log("FakeStore.Purchase");
-		onPurchase(r);
+		listener.OnPurchase(r);
 	}
 	
 	public void Restore() {
@@ -505,7 +534,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 			r.ok = false;
 			r.code = "empty";
 		}
-		onPurchase(r);
+		listener.OnPurchase(r);
 	}
 	
 	public void Consume(string token) {
@@ -514,16 +543,24 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	IEnumerator FakeConsume(string token) {
 		yield return StartCoroutine(Latency());
-		var r = new Response();
+		var r = new ConsumeResponse();
 		r.ok = Random.value > 0.1;
-		if (!r.ok) {
+		if (r.ok) {
+			hasPurchase = false;
+		} else {
 			if (debug) Debug.Log("FakeStore.Consume simulating fail");
 			r.code = "failed";
 		}
 		if (debug) Debug.Log("FakeStore.Consume");
-		onConsume(r);
+		r.purchaseToken = token;
+		listener.OnConsume(r);
 	}
-
+	
+	void OnDebug(string msg) {
+		if (debug) Debug.Log("OnDebug "+msg);
+		listener.OnDebug(msg);
+	}
+	
 	public void Close() {
 		// ok 
 	}
