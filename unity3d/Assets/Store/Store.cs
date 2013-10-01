@@ -260,7 +260,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	}
 	
 	public void GetInfo(string sku) {
-		if (debug) Debug.Log("Restore");
+		if (debug) Debug.Log("GetInfo");
 		
 		InfoResponse r = null;
 		
