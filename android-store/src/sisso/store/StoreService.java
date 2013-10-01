@@ -100,7 +100,7 @@ public class StoreService implements ServiceConnection {
 	public static void purchase(final String sku) {
 		Log.d(TAG, "purchase started for '"+sku+"'");
 		try {
-			Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "random-value");
+			Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "");
 			int response = buyIntentBundle.getInt("RESPONSE_CODE");
 			if (response == Cons.RESULT_OK) {
 				PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
@@ -230,22 +230,27 @@ public class StoreService implements ServiceConnection {
 		
 		try {
 			if (requestCode == Cons.REQUEST_CODE_PURCHASE) {
-				int responseCode = data.getIntExtra("RESPONSE_CODE", -1);
-				String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
-				if (responseCode == Cons.RESULT_OK) {
-					if (purchaseData == null) {
-						Log.d(TAG, "onActivityResult purchase is ok but data is null!");
-						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Purchase return a empty data", Cons.MESSAGE_CODE_FAILED));
+				if (resultCode == Activity.RESULT_OK) {
+					int responseCode = data.getIntExtra("RESPONSE_CODE", -1);
+					String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
+					if (responseCode == Cons.RESULT_OK) {
+						if (purchaseData == null) {
+							Log.d(TAG, "onActivityResult purchase is ok but data is null!");
+							sendMessage(Cons.EVENT_ONPURCHASE, buildError("Purchase return a empty data", Cons.MESSAGE_CODE_FAILED));
+						} else {
+							Log.d(TAG, "onActivityResult purchase ok");
+							sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject(purchaseData)));
+						}
+					} else if (responseCode == Cons.RESULT_CANCELED) {
+						Log.d(TAG, "onActivityResult purchase activity canceled");
+						sendMessage(Cons.EVENT_ONPURCHASE, buildError("The purchase was canceled", Cons.MESSAGE_CODE_CANCELED));
 					} else {
-						Log.d(TAG, "onActivityResult purchase ok");
-						sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject(purchaseData)));
+						Log.d(TAG, "onActivityResult purchase unknown "+responseCode);
+						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code "+responseCode, Cons.MESSAGE_CODE_FAILED));
 					}
-				} else if (responseCode == Cons.RESULT_CANCELED) {
-					Log.d(TAG, "onActivityResult purchase activity canceled");
-					sendMessage(Cons.EVENT_ONPURCHASE, buildError("The purchase was canceled", Cons.MESSAGE_CODE_CANCELED));
 				} else {
-					Log.d(TAG, "onActivityResult purchase unknown "+responseCode);
-					sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code "+responseCode, Cons.MESSAGE_CODE_FAILED));
+					Log.d(TAG, "onActivityResult invalid activity result code "+resultCode);
+					sendMessage(Cons.EVENT_ONPURCHASE, buildError("onActivityResult invalid activity result code "+resultCode, Cons.MESSAGE_CODE_FAILED));
 				}
 			} else {
 				debug("onActivityResult invalid code");
