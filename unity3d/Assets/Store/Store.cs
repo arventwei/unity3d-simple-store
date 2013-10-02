@@ -161,12 +161,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 	}
 	
-	public class ConsumeResponse : Response {
-		public string purchaseToken;
-		
-		public override string ToString() {
-			return base.ToString() + string.Format(" purchaseToken: {0}", purchaseToken);
-		}
+	public class ConsumeResponse : PurchaseResponse {
 	}
 	
 	public class InfoResponse : Response {
@@ -233,7 +228,11 @@ public class Store : MonoBehaviour, StoreDefinition {
 			listener.OnReady(r);
 		}
 	}
-	
+
+	/** 
+	 * Because the IOS api automatically consume a purchase, if was 
+	 * successful it call directly OnConsume without call OnPurchase.
+	 */
 	public void Purchase(string sku) {
 		if (debug) Debug.Log("Purchase "+sku);
 		StoreBinding.PurchaseProduct(sku);
@@ -254,8 +253,9 @@ public class Store : MonoBehaviour, StoreDefinition {
 		// they are automatically consumed in iap api
 				
 		var r = new ConsumeResponse();
-		r.ok = true;
-		r.purchaseToken = token;
+		r.ok = false;
+		r.code = "not-implemented";
+		
 		listener.OnConsume(r);
 	}
 	
@@ -331,10 +331,11 @@ public class Store : MonoBehaviour, StoreDefinition {
 		// Called from Objective-C when a store purchase succeeded
 		if (debug) Debug.Log("Purchase Succeeded " + productIdentifier);
 		
-		PurchaseResponse r = new PurchaseResponse();
+		var r = new ConsumeResponse();
 		r.ok = true;
 		r.productSku = productIdentifier;
-		listener.OnPurchase(r);
+		r.purchaseToken = "";
+		listener.OnConsume(r);
 	}
 	
 	public void CallbackTransactionFailed(string code)
@@ -366,6 +367,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	private bool started = false;
 	
+	private Dictionary<string, string> skuByPurchase = new Dictionary<string, string>();
+	
 	private Response Parse(string json) {
 		Hashtable map = (Hashtable) JSON.JsonDecode(json);
 		Response r = new Response();
@@ -390,6 +393,14 @@ public class Store : MonoBehaviour, StoreDefinition {
 		Parse(r, map);
 		if (r.data != null) {
 			r.purchaseToken = (string) r.data["purchaseToken"];
+			if (!skuByPurchase.ContainsKey(r.purchaseToken)) {
+				r.ok = false;
+				r.code = "token-not-found";
+				r.error = "Could not found purchase for token "+r.purchaseToken;
+				return r;
+				
+			}
+			r.productSku = skuByPurchase[r.purchaseToken];
 		}
 		return r;
 	}
@@ -481,6 +492,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	void OnPurchase(string json) {
 		if (debug) Debug.Log("OnPurchase "+json);
 		var r = ParsePurchase(json);
+		skuByPurchase.Add(r.purchaseToken, r.productSku);
 		listener.OnPurchase(r);
 	}
 	
@@ -494,8 +506,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	 * Fake implementation to allow to test all assyncronous in unity editor
 	 */
 	
-	private bool hasPurchase = false;
-	private string purchaseSku = null;
+	private Dictionary<string, string> skuByPurchase = new Dictionary<string, string>();
 	
 	private IEnumerator Latency() {
 		// simulate a wait time using frames assuming that app is at target fps
@@ -557,11 +568,10 @@ public class Store : MonoBehaviour, StoreDefinition {
 			if (debug) Debug.Log("FakeStore.Purchase simulating fail");
 			r.code = "failed";
 		} else {
-			r.purchaseToken = "123";
+			r.purchaseToken = Random.Range(0, 9999).ToString("0000");
 			r.productSku = sku;
 		
-			hasPurchase = true;
-			purchaseSku = sku;
+			skuByPurchase.Add(r.purchaseToken, sku);
 		}
 		if (debug) Debug.Log("FakeStore.Purchase");
 		listener.OnPurchase(r);
@@ -573,16 +583,20 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	IEnumerator FakeRestore() {
 		yield return StartCoroutine(Latency());
-		var r = new PurchaseResponse();
-		if (hasPurchase) {
+		foreach (var key in skuByPurchase.Keys) {
+			var r = new PurchaseResponse();
 			r.ok = true;
-			r.purchaseToken = "123";
-			r.productSku = purchaseSku;
-		} else {
+			r.purchaseToken = skuByPurchase[key];
+			r.productSku = key;
+			listener.OnPurchase(r);
+		} 
+		
+		if (skuByPurchase.Count == 0) {
+			var r = new PurchaseResponse();
 			r.ok = false;
 			r.code = "empty";
+			listener.OnPurchase(r);
 		}
-		listener.OnPurchase(r);
 	}
 	
 	public void Consume(string token) {
@@ -592,9 +606,10 @@ public class Store : MonoBehaviour, StoreDefinition {
 	IEnumerator FakeConsume(string token) {
 		yield return StartCoroutine(Latency());
 		var r = new ConsumeResponse();
-		r.ok = Random.value > 0.1;
+		r.ok = Random.value > 0.1 && skuByPurchase.ContainsKey(token);
 		if (r.ok) {
-			hasPurchase = false;
+			r.productSku = skuByPurchase[token];
+			skuByPurchase.Remove(token);
 		} else {
 			if (debug) Debug.Log("FakeStore.Consume simulating fail");
 			r.code = "failed";

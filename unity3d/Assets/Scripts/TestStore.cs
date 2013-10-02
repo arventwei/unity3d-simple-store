@@ -5,6 +5,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 	bool available = false;
 	bool loading = false;
 	string message = "";
+	string purchaseToken = null;
 	
 	string[] skus = new string[] {
 #if UNITY_ANDROID
@@ -13,8 +14,6 @@ public class TestStore : MonoBehaviour, Store.Listener {
 	"heroes.fame_10"
 #endif
 	};
-	
-	private string purchaseToken;
 	
 	void Start () {
 		Debug.Log("Starting");
@@ -51,8 +50,8 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		loading = false;
 		
 		if (r.ok) {
-			purchaseToken = (string) r.purchaseToken;
-			message = "purchased "+purchaseToken;
+			message = "purchased "+r.productSku+" with token "+r.purchaseToken;
+			purchaseToken = r.purchaseToken;
 		} else {
 			var code = r.code;
 			if (code == "canceled") {
@@ -73,7 +72,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		
 		loading = false;
 		if (r.ok) {
-			message = "consumed "+r.purchaseToken;
+			message = "consumed "+r.productSku+" with token "+r.purchaseToken;
 			purchaseToken = null;
 		} else {
 			message = "failed to consume "+r.code;
@@ -103,7 +102,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 				Store.Get().Purchase(skus[0]);
 			}
 		}
-		if (purchaseToken != null && purchaseToken.Length > 0) {
+		if (purchaseToken != null) {
 			if (GUILayout.Button("Consume", GUILayout.Height(h))) {
 				loading = true;
 				Store.Get().Consume(purchaseToken);
