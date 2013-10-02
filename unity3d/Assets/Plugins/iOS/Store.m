@@ -91,14 +91,21 @@ static Store *sharedSingleton;
     SKProduct *product = [productsDict objectForKey:itemName];
     if (product)
     {
+				NSNumberFormatter *numberFormatter = [[NSNumberFormatter alloc] init];
+				[numberFormatter setFormatterBehavior:NSNumberFormatterBehavior10_4];
+				[numberFormatter setNumberStyle:NSNumberFormatterCurrencyStyle];
+				[numberFormatter setLocale:product.priceLocale];
+				NSString *formattedString = [numberFormatter stringFromNumber:product.price];
+    
         NSString *productInfoToString = [[NSString alloc]
                                          initWithFormat:@"%@|%@|%@|%@",
                                             product.localizedTitle,
                                             product.localizedDescription,
-                                            product.price,
+                                            formattedString,
                                             product.productIdentifier];
         
         UnitySendMessage("Store", "CallbackReceiveProductInfo", MakeStringCopy(productInfoToString));
+				[numberFormatter release];
         [productInfoToString release];
     }
 }
