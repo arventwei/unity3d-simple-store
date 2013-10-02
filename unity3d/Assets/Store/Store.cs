@@ -140,6 +140,9 @@ public class StoreProduct
 }
 #endif
 
+/**
+ * After start the store will automatically refrehs all product info
+ */
 public class Store : MonoBehaviour, StoreDefinition {
 	public class Response {
 		public bool ok;
@@ -367,6 +370,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	private bool started = false;
 	
+	private string[] skus = new string[0];
+	
 	private Dictionary<string, string> skuByPurchase = new Dictionary<string, string>();
 	
 	private Response Parse(string json) {
@@ -430,6 +435,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 	
 	
 	public void Initialize(string[] skus) {
+		this.skus = skus;
+		
 		AndroidJNIHelper.debug = true;
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("initialize", gameObject.name);
@@ -476,6 +483,12 @@ public class Store : MonoBehaviour, StoreDefinition {
 		if (debug) Debug.Log("OnReady "+json);
 		var r = Parse(json);
 		listener.OnReady(r);
+		
+		if (r.ok) {
+			foreach (var sku in skus) {
+				GetInfo(sku);
+			}
+		}
 	}
 	
 	void OnDebug(string msg) {
@@ -506,6 +519,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 	 * Fake implementation to allow to test all assyncronous in unity editor
 	 */
 	
+	private string[] skus = new string[0];
+	
 	private Dictionary<string, string> skuByPurchase = new Dictionary<string, string>();
 	
 	private IEnumerator Latency() {
@@ -520,6 +535,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	}
 	
 	public void Initialize(string[] skus) {
+		this.skus = skus;
 		StartCoroutine(FakeInitialize());
 	}
 	
@@ -533,6 +549,10 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 		if (debug) Debug.Log("FakeStore.Initialize");
 		listener.OnReady(r);
+		
+		yield return StartCoroutine(Latency());
+		
+		foreach (var sku in skus) GetInfo(sku);
 	}
 	
 	public void GetInfo(string sku) {

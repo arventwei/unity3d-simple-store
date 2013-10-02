@@ -4,6 +4,7 @@ using System.Collections;
 public class TestStore : MonoBehaviour, Store.Listener {
 	bool available = false;
 	bool loading = false;
+	bool open = false;
 	string message = "";
 	string purchaseToken = null;
 	
@@ -19,7 +20,6 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		Debug.Log("Starting");
 		var s = Store.Get();
 		s.listener = this;
-		s.Initialize(skus);
 	}
 	
 	public void OnReady(Store.Response r) {
@@ -88,24 +88,37 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		
 		GUILayout.Label(message);
 		
-		if (available) {
-			if (GUILayout.Button("Get", GUILayout.Height(h))) {
-				loading = true;
-				Store.Get().GetInfo(skus[0]);
+		if (open) {
+			if (available) {
+				if (GUILayout.Button("Get", GUILayout.Height(h))) {
+					loading = true;
+					Store.Get().GetInfo(skus[0]);
+				}
+				if (GUILayout.Button("Restore", GUILayout.Height(h))) {
+					loading = true;
+					Store.Get().Restore();
+				}
+				if (GUILayout.Button("Buy", GUILayout.Height(h))) {
+					loading = true;
+					Store.Get().Purchase(skus[0]);
+				}
+				if (purchaseToken != null) {
+					if (GUILayout.Button("Consume", GUILayout.Height(h))) {
+						loading = true;
+						Store.Get().Consume(purchaseToken);
+					}
+				}
+			} 
+			
+			if (GUILayout.Button("Close", GUILayout.Height(h))) {
+				Store.Get().Close();
+				open = false;
+				available = false;
 			}
-			if (GUILayout.Button("Restore", GUILayout.Height(h))) {
-				loading = true;
-				Store.Get().Restore();
-			}
-			if (GUILayout.Button("Buy", GUILayout.Height(h))) {
-				loading = true;
-				Store.Get().Purchase(skus[0]);
-			}
-		}
-		if (purchaseToken != null) {
-			if (GUILayout.Button("Consume", GUILayout.Height(h))) {
-				loading = true;
-				Store.Get().Consume(purchaseToken);
+		} else {
+			if (GUILayout.Button("Open", GUILayout.Height(h))) {
+				Store.Get().Initialize(skus);
+				open = true;
 			}
 		}
 		
