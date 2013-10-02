@@ -492,7 +492,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	void OnPurchase(string json) {
 		if (debug) Debug.Log("OnPurchase "+json);
 		var r = ParsePurchase(json);
-		skuByPurchase.Add(r.purchaseToken, r.productSku);
+		if (r.ok) skuByPurchase.Add(r.purchaseToken, r.productSku);
 		listener.OnPurchase(r);
 	}
 	
