@@ -392,7 +392,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		ConsumeResponse r = new ConsumeResponse();
 		Parse(r, map);
 		if (r.data != null) {
-			r.purchaseToken = (string) r.data["purchaseToken"];
+			r.purchaseToken = (string) r.data["token"];
 			if (!skuByPurchase.ContainsKey(r.purchaseToken)) {
 				r.ok = false;
 				r.code = "token-not-found";
