@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 interface StoreDefinition {
 	void Initialize(string[] skus);
 	void Purchase(string sku);
-	void GetInfo(string sku);
 	void Restore();
 	void Consume(string token);
 	void Close();
@@ -141,7 +140,7 @@ public class StoreProduct
 #endif
 
 /**
- * After start the store will automatically refrehs all product info
+ * When start it refresh all products automatically
  */
 public class Store : MonoBehaviour, StoreDefinition {
 	public class Response {
@@ -260,34 +259,6 @@ public class Store : MonoBehaviour, StoreDefinition {
 		r.code = "not-implemented";
 		
 		listener.OnConsume(r);
-	}
-	
-	public void GetInfo(string sku) {
-		if (debug) Debug.Log("GetInfo");
-		
-		InfoResponse r = null;
-		
-		foreach (var p in products) {
-			if (p.ProductIdentifier == sku) {
-				r = new InfoResponse();
-				r.ok = true;
-				r.productTitle = p.Title;
-				r.productDescription = p.Description;
-				r.productPrice = p.Price;
-				r.productSku = p.ProductIdentifier;
-				break;
-			}
-		}
-		
-		if (r == null) {
-			// not found
-			r = new InfoResponse();
-			r.ok = false;
-			r.code = "failed";
-			r.error = "Could not found product with sku "+sku;
-		}
-		
-		listener.OnInfo(r);
 	}
 	
 	public void Close() {
@@ -437,19 +408,15 @@ public class Store : MonoBehaviour, StoreDefinition {
 	public void Initialize(string[] skus) {
 		this.skus = skus;
 		
-		AndroidJNIHelper.debug = true;
+		var jsonSkus = JSON.JsonEncode(new ArrayList(skus));
+		
+		AndroidJNIHelper.debug = debug;
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("initialize", gameObject.name);
+			cls.CallStatic("initialize", gameObject.name, jsonSkus);
 		}		
 		started = true;
 	}
-	
-	public void GetInfo(string sku) {
-		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
-			cls.CallStatic("getInfo", sku);
-		}		
-	}
-	
+
 	public void Purchase(string sku) {
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("purchase", sku);
@@ -483,12 +450,6 @@ public class Store : MonoBehaviour, StoreDefinition {
 		if (debug) Debug.Log("OnReady "+json);
 		var r = Parse(json);
 		listener.OnReady(r);
-		
-		if (r.ok) {
-			foreach (var sku in skus) {
-				GetInfo(sku);
-			}
-		}
 	}
 	
 	void OnDebug(string msg) {
@@ -505,7 +466,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 	void OnPurchase(string json) {
 		if (debug) Debug.Log("OnPurchase "+json);
 		var r = ParsePurchase(json);
-		if (r.ok) skuByPurchase.Add(r.purchaseToken, r.productSku);
+		if (r.ok) skuByPurchase[r.purchaseToken] = r.productSku;
 		listener.OnPurchase(r);
 	}
 	
@@ -552,11 +513,8 @@ public class Store : MonoBehaviour, StoreDefinition {
 		
 		yield return StartCoroutine(Latency());
 		
-		foreach (var sku in skus) GetInfo(sku);
-	}
-	
-	public void GetInfo(string sku) {
-		StartCoroutine(FakeGetInfo(sku));
+		foreach (var sku in skus) 
+			StartCoroutine(FakeGetInfo(sku));
 	}
 	
 	IEnumerator FakeGetInfo(string sku) {

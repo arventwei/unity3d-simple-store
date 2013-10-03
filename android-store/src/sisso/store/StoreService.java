@@ -2,6 +2,7 @@ package sisso.store;
 
 import java.util.ArrayList;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -32,16 +33,36 @@ public class StoreService implements ServiceConnection {
 
 	private IInAppBillingService service;
 	private String listener;
+	private String[] skus;
 
 	public static StoreService get() {
 		if (instance == null) instance = new StoreService();
 		return instance;
 	}
 
-	public static void initialize(String listenerName) {
-		get().listener = listenerName;
+	public static void initialize(String listenerName, String jsonSkus) {
 		Log.d(TAG, "initialize start");
-		UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND), get(), Context.BIND_AUTO_CREATE);
+		Log.d(TAG, "listener: "+listenerName);
+		Log.d(TAG, "skus: "+jsonSkus);
+		
+		StoreService service = get();
+		service.listener = listenerName;
+		
+		String[] skus = new String[0];
+		
+		try {
+			JSONArray json = new JSONArray(jsonSkus);
+			skus = new String[json.length()];
+			for (int i = 0; i < skus.length; i++) {
+				skus[i] = json.getString(i);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		service.skus = skus;
+		
+		UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND), service, Context.BIND_AUTO_CREATE);
 		Log.d(TAG, "initialize finished");
 	}
 
@@ -61,15 +82,16 @@ public class StoreService implements ServiceConnection {
 		thread.start();
 	}
 	
-	public static void getInfo(final String sku) {
+	public static void getInfo(final String... skus) {
 		run(new Runnable() {
 			@Override
 			public void run() {
 				try {
-					Log.d(TAG, "getInfo thread started for "+sku+"'");
+					Log.d(TAG, "getInfo thread started");
 
 					ArrayList skuList = new ArrayList();
-					skuList.add(sku);
+					for (String sku : skus)
+						skuList.add(sku);
 					Bundle querySkus = new Bundle();
 					querySkus.putStringArrayList("ITEM_ID_LIST", skuList);
 	
@@ -122,26 +144,21 @@ public class StoreService implements ServiceConnection {
 	}
 
 	public static void consume(final String purchaseToken) {
-		run(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					Log.d(TAG, "consume thread started for '"+purchaseToken+"'");
-					int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), purchaseToken);
-					if (response == Cons.RESULT_OK) {
-						JSONObject result = new JSONObject();
-						result.put("token", purchaseToken);
-						sendMessage(Cons.EVENT_ONCONSUME, buildResult(result));
-					} else {
-						sendMessage(Cons.EVENT_ONCONSUME, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
-					}
-					Log.d(TAG, "consume thread finish");
-				} catch (final Exception e) {
-					e.printStackTrace();
-					sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
-				}
+		try {
+			Log.d(TAG, "consume thread started for '"+purchaseToken+"'");
+			int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), purchaseToken);
+			if (response == Cons.RESULT_OK) {
+				JSONObject result = new JSONObject();
+				result.put("token", purchaseToken);
+				sendMessage(Cons.EVENT_ONCONSUME, buildResult(result));
+			} else {
+				sendMessage(Cons.EVENT_ONCONSUME, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
 			}
-		});
+			Log.d(TAG, "consume thread finish");
+		} catch (final Exception e) {
+			e.printStackTrace();
+			sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
+		}
 	}
 
 	public static void restore() {
@@ -179,6 +196,8 @@ public class StoreService implements ServiceConnection {
 		try {
 			boolean available = service.isBillingSupported(3, UnityPlayer.currentActivity.getPackageName(), Cons.INAPP) == Cons.RESULT_OK;
 			sendMessage(Cons.EVENT_ONREADY, available ? buildResult(null) : buildError("not available", Cons.MESSAGE_CODE_FAILED));
+			// automatically check for products
+			getInfo(skus);
 		} catch (Exception e) {
 			e.printStackTrace();
 			sendMessage(Cons.EVENT_ONREADY, buildError("Exception "+e.getMessage(), Cons.MESSAGE_CODE_FAILED));

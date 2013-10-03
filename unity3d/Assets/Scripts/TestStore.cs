@@ -90,10 +90,6 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		
 		if (open) {
 			if (available) {
-				if (GUILayout.Button("Get", GUILayout.Height(h))) {
-					loading = true;
-					Store.Get().GetInfo(skus[0]);
-				}
 				if (GUILayout.Button("Restore", GUILayout.Height(h))) {
 					loading = true;
 					Store.Get().Restore();
