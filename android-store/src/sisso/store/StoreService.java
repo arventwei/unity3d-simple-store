@@ -1,9 +1,9 @@
 package sisso.store;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.app.Activity;
@@ -12,7 +12,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.graphics.Bitmap.Config;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
@@ -34,7 +33,8 @@ public class StoreService implements ServiceConnection {
 	private IInAppBillingService service;
 	private String listener;
 	private String[] skus;
-
+	private HashSet<String> purchaseAndConsume = new HashSet<String>(); 
+	
 	public static StoreService get() {
 		if (instance == null) instance = new StoreService();
 		return instance;
@@ -118,6 +118,13 @@ public class StoreService implements ServiceConnection {
 			}
 		});
 	}
+	
+	public static void purchaseAndConsume(final String sku) {
+		synchronized (get().purchaseAndConsume) {
+			get().purchaseAndConsume.add(sku);
+		}
+		purchase(sku);
+	}
 
 	public static void purchase(final String sku) {
 		Log.d(TAG, "purchase started for '"+sku+"'");
@@ -143,13 +150,14 @@ public class StoreService implements ServiceConnection {
 		Log.d(TAG, "purchase finished");
 	}
 
-	public static void consume(final String purchaseToken) {
+	public static void consume(final String sku, final String token) {
 		try {
-			Log.d(TAG, "consume thread started for '"+purchaseToken+"'");
-			int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), purchaseToken);
+			Log.d(TAG, "consume thread started for '"+token+"' for productId '"+sku+"'");
+			int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), token);
 			if (response == Cons.RESULT_OK) {
 				JSONObject result = new JSONObject();
-				result.put("token", purchaseToken);
+				result.put("purchaseToken", token);
+				result.put("productId", sku);
 				sendMessage(Cons.EVENT_ONCONSUME, buildResult(result));
 			} else {
 				sendMessage(Cons.EVENT_ONCONSUME, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
@@ -258,7 +266,15 @@ public class StoreService implements ServiceConnection {
 							sendMessage(Cons.EVENT_ONPURCHASE, buildError("Purchase return a empty data", Cons.MESSAGE_CODE_FAILED));
 						} else {
 							Log.d(TAG, "onActivityResult purchase ok");
-							sendMessage(Cons.EVENT_ONPURCHASE, buildResult(new JSONObject(purchaseData)));
+							JSONObject json = new JSONObject(purchaseData);
+							String sku = json.getString("productId");
+							String token = json.getString("purchaseToken");
+							if (get().purchaseAndConsume.contains(sku)) {
+								Log.d(TAG, "onActivityResult purchase is marked to consume for sku "+sku+" and token "+token);
+								consume(sku, token);
+							} else {
+								sendMessage(Cons.EVENT_ONPURCHASE, buildResult(json));
+							}
 						}
 					} else if (responseCode == Cons.RESULT_CANCELED) {
 						Log.d(TAG, "onActivityResult purchase activity canceled");

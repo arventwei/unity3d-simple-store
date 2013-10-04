@@ -7,6 +7,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 	bool open = false;
 	string message = "";
 	string purchaseToken = null;
+	string sku = null;
 	
 	string[] skus = new string[] {
 #if UNITY_ANDROID
@@ -52,6 +53,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		if (r.ok) {
 			message = "purchased "+r.productSku+" with token "+r.purchaseToken;
 			purchaseToken = r.purchaseToken;
+			sku = r.productSku;
 		} else {
 			var code = r.code;
 			if (code == "canceled") {
@@ -74,6 +76,7 @@ public class TestStore : MonoBehaviour, Store.Listener {
 		if (r.ok) {
 			message = "consumed "+r.productSku+" with token "+r.purchaseToken;
 			purchaseToken = null;
+			sku = null;
 		} else {
 			message = "failed to consume "+r.code;
 		}
@@ -96,12 +99,12 @@ public class TestStore : MonoBehaviour, Store.Listener {
 				}
 				if (GUILayout.Button("Buy", GUILayout.Height(h))) {
 					loading = true;
-					Store.Get().Purchase(skus[0]);
+					Store.Get().PurchaseAndConsume(skus[0]);
 				}
 				if (purchaseToken != null) {
 					if (GUILayout.Button("Consume", GUILayout.Height(h))) {
 						loading = true;
-						Store.Get().Consume(purchaseToken);
+						Store.Get().Consume(sku, purchaseToken);
 					}
 				}
 			} 
