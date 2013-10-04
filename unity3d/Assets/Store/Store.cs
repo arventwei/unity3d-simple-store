@@ -144,6 +144,10 @@ public class StoreProduct
  * When start it refresh all products automatically
  */
 public class Store : MonoBehaviour, StoreDefinition {
+	public static string CODE_FAILED = "failed";
+	public static string CODE_EMPTY = "empty";
+	public static string CODE_NOT_IMPLEMENTED = "not-implemented";
+	
 	public class Response {
 		public bool ok;
 		public string error;
@@ -226,7 +230,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		} else {
 			Response r = new Response();
 			r.ok = false;
-			r.code = "failed";
+			r.code = CODE_FAILED;
 			r.error = "CanMakeStorePurchases return false";
 			listener.OnReady(r);
 		}
@@ -240,7 +244,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		if (debug) Debug.Log("Purchase "+sku);
 		var r = new PurchaseResponse();
 		r.ok = false;
-		r.code = "not-implemented";
+		r.code = CODE_NOT_IMPLEMENTED;
 		listener.OnPurchase(r);
 	}
 	
@@ -254,7 +258,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		
 		var r = new PurchaseResponse();
 		r.ok = false;
-		r.code = "not-implemented";
+		r.code = CODE_NOT_IMPLEMENTED;
 		listener.OnPurchase(r);
 	}
 	
@@ -265,7 +269,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 				
 		var r = new ConsumeResponse();
 		r.ok = false;
-		r.code = "not-implemented";
+		r.code = CODE_NOT_IMPLEMENTED;
 		
 		listener.OnConsume(r);
 	}
@@ -294,7 +298,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		Debug.Log("Store Failed to load");	
 		Response r = new Response();
 		r.ok = false;
-		r.code = "failed";
+		r.code = CODE_FAILED;
 		r.error = "Store failed to load with result: "+empty;
 		listener.OnReady(r);
 	}
@@ -513,15 +517,17 @@ public class Store : MonoBehaviour, StoreDefinition {
 		r.ok = Random.value > 0.1;
 		if (!r.ok) {
 			if (debug) Debug.Log("FakeStore.Initialize simulating fail");
-			r.code = "failed";
+			r.code = CODE_FAILED;
 		}
 		if (debug) Debug.Log("FakeStore.Initialize");
 		listener.OnReady(r);
 		
 		yield return StartCoroutine(Latency());
 		
-		foreach (var sku in skus) 
-			StartCoroutine(FakeGetInfo(sku));
+		if (r.ok) {
+			foreach (var sku in skus) 
+				StartCoroutine(FakeGetInfo(sku));
+		}
 	}
 	
 	IEnumerator FakeGetInfo(string sku) {
@@ -530,12 +536,12 @@ public class Store : MonoBehaviour, StoreDefinition {
 		r.ok = Random.value > 0.1;
 		if (r.ok) {
 			r.productTitle = "Title";
-			r.productPrice = "$ 0.99";
+			r.productPrice = "";
 			r.productDescription = "Desc";
 			r.productSku = sku;
 		} else {
 			if (debug) Debug.Log("FakeStore.GetInfo simulating fail");
-			r.code = "failed";
+			r.code = CODE_FAILED;
 		}
 		if (debug) Debug.Log("FakeStore.GetInfo");
 		listener.OnInfo(r);
@@ -556,7 +562,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		r.ok = Random.value > 0.1;
 		if (!r.ok) {
 			if (debug) Debug.Log("FakeStore.Purchase simulating fail");
-			r.code = "failed";
+			r.code = CODE_FAILED;
 		} else {
 			r.purchaseToken = Random.Range(0, 9999).ToString("0000");
 			r.productSku = sku;
@@ -565,7 +571,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		}
 		if (debug) Debug.Log("FakeStore.Purchase");
 		
-		if (consume.Contains(sku)) {
+		if (r.ok && consume.Contains(sku)) {
 			Consume(r.productSku, r.purchaseToken);
 		} else {
 			listener.OnPurchase(r);
@@ -589,7 +595,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		if (skuByPurchase.Count == 0) {
 			var r = new PurchaseResponse();
 			r.ok = false;
-			r.code = "empty";
+			r.code = CODE_EMPTY;
 			listener.OnPurchase(r);
 		}
 	}
@@ -606,7 +612,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 			skuByPurchase.Remove(token);
 		} else {
 			if (debug) Debug.Log("FakeStore.Consume simulating fail");
-			r.code = "failed";
+			r.code = CODE_FAILED;
 		}
 		if (debug) Debug.Log("FakeStore.Consume");
 		r.purchaseToken = token;
