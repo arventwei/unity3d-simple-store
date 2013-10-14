@@ -19,7 +19,11 @@ public class TestStore : MonoBehaviour, Store.Listener {
 	
 	void Start () {
 		Debug.Log("Starting");
+		
+		AndroidJNIHelper.debug = true;
+		
 		var s = Store.Get();
+		s.SetDebug(true);
 		s.listener = this;
 	}
 	

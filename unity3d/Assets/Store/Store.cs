@@ -10,6 +10,7 @@ interface StoreDefinition {
 	void Restore();
 	void Consume(string sku, string token);
 	void Close();
+	void SetDebug(bool enabled);
 }
 
 #if UNITY_IPHONE && ! FAKE_IAP && ! UNITY_EDITOR
@@ -202,7 +203,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		return instance;
 	}
 	
-	public bool debug = true;
+	private bool debug = false;
 	
 	public Listener listener;
 	
@@ -212,6 +213,10 @@ public class Store : MonoBehaviour, StoreDefinition {
 
 	// any value different of null will activate server verification
 	string receiptServer = null;
+
+	public void SetDebug(bool enabled) {
+		this.debug = enabled;
+	}
 	
 	public void Initialize(string[] skus) {
 		if (debug) Debug.Log("Initializing with skus "+skus);
@@ -408,13 +413,18 @@ public class Store : MonoBehaviour, StoreDefinition {
 			r.data = (Hashtable) map["data"];
 	}
 	
+	public void SetDebug(bool enabled) {
+		this.debug = enabled;
+		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
+			cls.CallStatic("setDebug", enabled);
+		}		
+	}
 	
 	public void Initialize(string[] skus) {
 		this.skus = skus;
 		
 		var jsonSkus = JSON.JsonEncode(new ArrayList(skus));
 		
-		AndroidJNIHelper.debug = debug;
 		using(AndroidJavaClass cls = new AndroidJavaClass("sisso.store.StoreService")) {
 			cls.CallStatic("initialize", gameObject.name, jsonSkus);
 		}		
@@ -450,6 +460,10 @@ public class Store : MonoBehaviour, StoreDefinition {
 			cls.CallStatic("close");
 		}		
 		started = false;
+	}
+	
+	void OnApplicationQuit() {
+		if (started) Close();
 	}
 	
 	void OnDestroy() {
@@ -504,6 +518,10 @@ public class Store : MonoBehaviour, StoreDefinition {
 			yield return new WaitForEndOfFrame();
 			framesToWait --;
 		}
+	}
+	
+	public void SetDebug(bool enabled) {
+		this.debug = enabled;
 	}
 	
 	public void Initialize(string[] skus) {
@@ -624,7 +642,7 @@ public class Store : MonoBehaviour, StoreDefinition {
 		if (debug) Debug.Log("OnDebug "+msg);
 		listener.OnDebug(msg);
 	}
-	
+
 	public void Close() {
 		// ok 
 	}

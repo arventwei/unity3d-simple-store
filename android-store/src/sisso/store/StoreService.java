@@ -20,15 +20,19 @@ import com.android.vending.billing.IInAppBillingService;
 import com.unity3d.player.UnityPlayer;
 
 /*
+ * Returned events by method
+ * 
  * initialize OnReady
  * getInfo OnInfo
  * purchase OnPurchase
+ * purchaseAndConsume OnPurchase|OnConsume
  * restore OnPurchase
  * consume OnConsume
  */
 public class StoreService implements ServiceConnection {
 	private static final String TAG = "StoreService";
 	private static StoreService instance;
+	private static boolean debug = false;
 
 	private IInAppBillingService service;
 	private String listener;
@@ -39,11 +43,18 @@ public class StoreService implements ServiceConnection {
 		if (instance == null) instance = new StoreService();
 		return instance;
 	}
+	
+	public static void setDebug(boolean debug) {
+		StoreService.debug = debug;
+		if (debug) {
+			Log.d(TAG, "Debug enabled");
+		}
+	}
 
 	public static void initialize(String listenerName, String jsonSkus) {
-		Log.d(TAG, "initialize start");
-		Log.d(TAG, "listener: "+listenerName);
-		Log.d(TAG, "skus: "+jsonSkus);
+		if (StoreService.debug) Log.d(TAG, "initialize start");
+		if (StoreService.debug) Log.d(TAG, "listener: "+listenerName);
+		if (StoreService.debug) Log.d(TAG, "skus: "+jsonSkus);
 		
 		StoreService service = get();
 		service.listener = listenerName;
@@ -63,16 +74,16 @@ public class StoreService implements ServiceConnection {
 		service.skus = skus;
 		
 		UnityPlayer.currentActivity.bindService(new Intent(Cons.IAP_BIND), service, Context.BIND_AUTO_CREATE);
-		Log.d(TAG, "initialize finished");
+		if (StoreService.debug) Log.d(TAG, "initialize finished");
 	}
 
 	private static void debug(String message) {
-		Log.d(TAG, message);
+		if (StoreService.debug) Log.d(TAG, message);
 		sendMessage("OnDebug", message);
 	}
 	
 	public static void close() {
-		Log.d(TAG, "close");
+		if (StoreService.debug) Log.d(TAG, "close");
 		UnityPlayer.currentActivity.unbindService(get());
 	}
 
@@ -87,7 +98,7 @@ public class StoreService implements ServiceConnection {
 			@Override
 			public void run() {
 				try {
-					Log.d(TAG, "getInfo thread started");
+					if (StoreService.debug) Log.d(TAG, "getInfo thread started");
 
 					ArrayList skuList = new ArrayList();
 					for (String sku : skus)
@@ -101,6 +112,7 @@ public class StoreService implements ServiceConnection {
 
 					int response = skuDetails.getInt("RESPONSE_CODE");
 					if (response != Cons.RESULT_OK) {
+						Log.w(TAG, "Get info failed with response code "+response);
 						sendMessage(Cons.EVENT_ONINFO, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
 						return;
 					}
@@ -110,7 +122,7 @@ public class StoreService implements ServiceConnection {
 					for (String thisResponse : responseList) {
 						sendMessage(Cons.EVENT_ONINFO, buildResult(new JSONObject(thisResponse)));
 					}
-					Log.d(TAG, "getInfo thread finished");
+					if (StoreService.debug) Log.d(TAG, "getInfo thread finished");
 				} catch (Exception e) {
 					e.printStackTrace();
 					sendMessage(Cons.EVENT_ONINFO, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
@@ -127,7 +139,7 @@ public class StoreService implements ServiceConnection {
 	}
 
 	public static void purchase(final String sku) {
-		Log.d(TAG, "purchase started for '"+sku+"'");
+		if (StoreService.debug) Log.d(TAG, "purchase started for '"+sku+"'");
 		try {
 			Bundle buyIntentBundle = get().service.getBuyIntent(3, UnityPlayer.currentActivity.getPackageName(), sku, "inapp", "");
 			int response = buyIntentBundle.getInt("RESPONSE_CODE");
@@ -138,21 +150,22 @@ public class StoreService implements ServiceConnection {
 						new Intent(), Integer.valueOf(0),
 						Integer.valueOf(0), Integer.valueOf(0));
 			} else if (response == Cons.RESULT_OWNED) {
-				Log.d(TAG, "purchase thread product already owned, restoring");
+				if (StoreService.debug) Log.d(TAG, "purchase thread product already owned, restoring");
 				restore();
 			} else {
+				Log.w(TAG, "Purchase of "+sku+" failed with response code "+response);
 				sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
 			}
 		} catch (final Exception e) {
 			e.printStackTrace();
 			sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
 		}
-		Log.d(TAG, "purchase finished");
+		if (StoreService.debug) Log.d(TAG, "purchase finished");
 	}
 
 	public static void consume(final String sku, final String token) {
 		try {
-			Log.d(TAG, "consume thread started for '"+token+"' for productId '"+sku+"'");
+			if (StoreService.debug) Log.d(TAG, "consume thread started for '"+token+"' for productId '"+sku+"'");
 			int response = get().service.consumePurchase(3, UnityPlayer.currentActivity.getPackageName(), token);
 			if (response == Cons.RESULT_OK) {
 				JSONObject result = new JSONObject();
@@ -160,9 +173,10 @@ public class StoreService implements ServiceConnection {
 				result.put("productId", sku);
 				sendMessage(Cons.EVENT_ONCONSUME, buildResult(result));
 			} else {
+				Log.w(TAG, "Consume of sku "+sku+" with token "+token+" return an invalid response code "+response);
 				sendMessage(Cons.EVENT_ONCONSUME, buildError("Invalid response code: "+response, Cons.MESSAGE_CODE_FAILED));
 			}
-			Log.d(TAG, "consume thread finish");
+			if (StoreService.debug) Log.d(TAG, "consume thread finish");
 		} catch (final Exception e) {
 			e.printStackTrace();
 			sendMessage(Cons.EVENT_ONCONSUME, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
@@ -174,7 +188,7 @@ public class StoreService implements ServiceConnection {
 			@Override
 			public void run() {
 				try {
-					Log.d(TAG, "restore thread started");
+					if (StoreService.debug) Log.d(TAG, "restore thread started");
 					
 					Bundle ownedItems = get().service.getPurchases(3, UnityPlayer.currentActivity.getPackageName(), "inapp", null);
 					int response = ownedItems.getInt("RESPONSE_CODE");
@@ -190,7 +204,7 @@ public class StoreService implements ServiceConnection {
 					} else {
 						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response: "+response, Cons.MESSAGE_CODE_FAILED));
 					}
-					Log.d(TAG, "restore thread finished");
+					if (StoreService.debug) Log.d(TAG, "restore thread finished");
 				} catch (final Exception e) {
 					e.printStackTrace();
 					sendMessage(Cons.EVENT_ONPURCHASE, buildError(e.getMessage(), Cons.MESSAGE_CODE_EXCEPTION));
@@ -200,7 +214,7 @@ public class StoreService implements ServiceConnection {
 	}
 
 	private void checkAvailability() {
-		Log.d(TAG, "checkAvailability started");
+		if (StoreService.debug) Log.d(TAG, "checkAvailability started");
 		try {
 			boolean available = service.isBillingSupported(3, UnityPlayer.currentActivity.getPackageName(), Cons.INAPP) == Cons.RESULT_OK;
 			sendMessage(Cons.EVENT_ONREADY, available ? buildResult(null) : buildError("not available", Cons.MESSAGE_CODE_FAILED));
@@ -210,7 +224,7 @@ public class StoreService implements ServiceConnection {
 			e.printStackTrace();
 			sendMessage(Cons.EVENT_ONREADY, buildError("Exception "+e.getMessage(), Cons.MESSAGE_CODE_FAILED));
 		}
-		Log.d(TAG, "checkAvailability finished");
+		if (StoreService.debug) Log.d(TAG, "checkAvailability finished");
 	}
 
 	private static String buildError(String msg, String code) {
@@ -243,7 +257,18 @@ public class StoreService implements ServiceConnection {
 	}
 
 	private static void sendMessage(String message, String value) {
-		UnityPlayer.UnitySendMessage(get().listener, message, value);
+		try {
+			if (get().listener == null) {
+				// this could happens in some situations that android call onActivyResult when app restart 
+				// after a crash
+				if (StoreService.debug) Log.d(TAG, "Could not send message to unity because the listener was not initialized");
+				return;
+			}
+				
+			UnityPlayer.UnitySendMessage(get().listener, message, value);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -253,7 +278,7 @@ public class StoreService implements ServiceConnection {
 	}
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
-		Log.d(TAG, "onActivityResult start request code "+requestCode+" result code "+resultCode);
+		if (StoreService.debug) Log.d(TAG, "onActivityResult start request code "+requestCode+" result code "+resultCode);
 		
 		try {
 			if (requestCode == Cons.REQUEST_CODE_PURCHASE) {
@@ -262,29 +287,31 @@ public class StoreService implements ServiceConnection {
 					String purchaseData = data.getStringExtra("INAPP_PURCHASE_DATA");
 					if (responseCode == Cons.RESULT_OK) {
 						if (purchaseData == null) {
-							Log.d(TAG, "onActivityResult purchase is ok but data is null!");
+							// this is a expected in some situation where iap crashes before send the activity result
+							// so when app start again, it send with value null, generally before you have started the store :P
+							Log.w(TAG, "onActivityResult purchase is ok but data is null!");
 							sendMessage(Cons.EVENT_ONPURCHASE, buildError("Purchase return a empty data", Cons.MESSAGE_CODE_FAILED));
 						} else {
-							Log.d(TAG, "onActivityResult purchase ok");
+							if (StoreService.debug) Log.d(TAG, "onActivityResult purchase ok");
 							JSONObject json = new JSONObject(purchaseData);
 							String sku = json.getString("productId");
 							String token = json.getString("purchaseToken");
 							if (get().purchaseAndConsume.contains(sku)) {
-								Log.d(TAG, "onActivityResult purchase is marked to consume for sku "+sku+" and token "+token);
+								if (StoreService.debug) Log.d(TAG, "onActivityResult purchase is marked to consume for sku "+sku+" and token "+token);
 								consume(sku, token);
 							} else {
 								sendMessage(Cons.EVENT_ONPURCHASE, buildResult(json));
 							}
 						}
 					} else if (responseCode == Cons.RESULT_CANCELED) {
-						Log.d(TAG, "onActivityResult purchase activity canceled");
+						if (StoreService.debug) Log.d(TAG, "onActivityResult purchase activity canceled");
 						sendMessage(Cons.EVENT_ONPURCHASE, buildError("The purchase was canceled", Cons.MESSAGE_CODE_CANCELED));
 					} else {
-						Log.d(TAG, "onActivityResult purchase unknown "+responseCode);
+						Log.w(TAG, "onActivityResult purchase unknown "+responseCode);
 						sendMessage(Cons.EVENT_ONPURCHASE, buildError("Invalid response code "+responseCode, Cons.MESSAGE_CODE_FAILED));
 					}
 				} else {
-					Log.d(TAG, "onActivityResult invalid activity result code "+resultCode);
+					Log.w(TAG, "onActivityResult invalid activity result code "+resultCode);
 					sendMessage(Cons.EVENT_ONPURCHASE, buildError("onActivityResult invalid activity result code "+resultCode, Cons.MESSAGE_CODE_FAILED));
 				}
 			} else {
